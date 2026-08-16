@@ -70,6 +70,9 @@
   .rbline .rbres.no{color:#f87171}
   .rbprob-bg{height:4px;border-radius:2px;background:#241a3d;overflow:hidden;margin-top:5px}
   .rbprob-bg div{height:100%;background:var(--gold);border-radius:2px}
+  .rbexp{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#10182a;border:1px dashed #2a3d66;border-radius:10px;padding:8px 12px;font-size:12px;color:var(--mut);margin-top:7px}
+  .rbexp b{color:#c9b8ff}
+  .fire{color:#fbbf24;font-size:12px;margin-right:4px}
   #results ul{list-style:none;display:flex;flex-wrap:wrap;gap:8px}
   #results li{background:#101a2e;border:1px solid #22315a;border-radius:9px;padding:6px 11px;font-size:12px;color:var(--txt)}
   .note{background:#10182a;border:1px dashed #2a3d66;border-radius:12px;padding:12px 14px;color:var(--mut);font-size:12px;line-height:1.55;margin-top:26px}
@@ -83,7 +86,7 @@
 <header>
   <div>
     <div class="logo">⚡ Apostas <span>ao Vivo</span></div>
-    <div class="meta">Entradas de <b>gols</b> e <b>escanteios</b> — sugestões 🤖 robobet.app + estatísticas em tempo real (xG, chutes, momentum)</div>
+    <div class="meta">Destaque para <b>jogos movimentados</b> (xG alto, muitos chutes) com <b>expectativa de gols e escanteios</b> — 🤖 robobet.app + estatísticas em tempo real</div>
   </div>
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span class="live-badge"><span class="live-dot"></span> AO VIVO</span>
@@ -228,13 +231,37 @@ function pct(a,b){ const ta=parseFloat(a), tb=parseFloat(b); const t=ta+tb; retu
 function norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 function rbLabel(mkt){ return MARKET_LABELS[mkt]||mkt; }
 
-// ---------- Top 3 dinâmico ----------
+// ---------- Movimentação e Top 3 dinâmico ----------
+function busyInfoOf(st, rb, hs, as){
+  st=st||{}; rb=rb||{};
+  const sum=k=>{const v=st[k]; return v?(parseFloat(v[0])||0)+(parseFloat(v[1])||0):0;};
+  const shots=sum("shots"), sot=sum("sot"), corners=sum("corners");
+  const expC=parseFloat(rb.cornersExp), o05=parseFloat(rb.over05), o15=parseFloat(rb.over15), o25=parseFloat(rb.over25);
+  const xg=(st.xg? parseFloat(st.xg[0])+parseFloat(st.xg[1]) : 0);
+  const goals=(parseInt(hs)||0)+(parseInt(as)||0);
+  return {shots,sot,corners,expC,o05,o15,o25,xg,goals};
+}
+function fireLevelFrom(st, rb, hs, as){
+  const b=busyInfoOf(st, rb, hs, as);
+  let n=0;
+  if(b.shots>=16) n++; if(b.shots>=24) n++;
+  if(b.sot>=5) n++;
+  if(b.corners>=6) n++;
+  if(Number.isFinite(b.expC) && b.expC>=8.5) n++;
+  if(b.goals>=3) n++;
+  return n? "🔥".repeat(Math.min(n,3)) : "";
+}
 function isFinished(m){ const L=live[m.id]; return L && L.clock==="Encerrado"; }
 function rankScore(m){
-  const r=m.rb||{}; const conf=(m.picks||[]).reduce((a,p)=>Math.max(a,p.conf),0);
-  return (parseFloat(r.prob)||0) + conf*3;
+  const L=live[m.id]||{};
+  const st=L.stats||{};
+  const b=busyInfoOf(st, L.rb||m.rb||{}, L.hs!=null?L.hs:m.hs, L.as!=null?L.as:m.as);
+  return b.shots*1 + b.sot*2 + b.corners*2.5 + b.xg*6
+       + (Number.isFinite(b.expC)? (b.expC-5)*4 : 0)
+       + (Number.isFinite(b.o15)? b.o15*0.5 : 0)
+       + (Number.isFinite(b.o25)? b.o25*0.6 : 0)
+       + b.goals*3;
 }
-function confFromProb(p){ if(p>=85) return 5; if(p>=80) return 4; if(p>=75) return 3; if(p>=70) return 2; return 1; }
 function computeTop3(){
   const pool=MATCHES.filter(m=>!isFinished(m));
   if(!pool.length) return [];
@@ -244,20 +271,32 @@ function renderHero(){
   const hero=document.getElementById("hero");
   const top=computeTop3();
   if(!top.length){
-    hero.innerHTML=`<div class="podium" style="grid-column:1/-1"><h3>Sem jogos ao vivo no momento</h3><div class="why">Quando um jogo terminar, o Top 3 é recalculado automaticamente com as próximas melhores entradas.</div></div>`;
+    hero.innerHTML=`<div class="podium" style="grid-column:1/-1"><h3>Sem jogos ao vivo no momento</h3><div class="why">Quando um jogo terminar, o Top 3 é recalculado automaticamente com os jogos mais movimentados.</div></div>`;
     return;
   }
   hero.innerHTML=top.map((m,i)=>{
-    const r=m.rb||{};
-    const pick = r.market ? `${rbLabel(r.market)} ${r.abbr||""} · ${parseFloat(r.prob).toFixed(0)}% · @${r.odd}` : (m.picks[0]?m.picks[0].line:"—");
-    const conf = r.prob ? confFromProb(parseFloat(r.prob)) : (m.picks.reduce((a,p)=>Math.max(a,p.conf),0));
-    const why = r.market
-      ? `🤖 robobet.app dá ${parseFloat(r.prob).toFixed(0)}% para ${rbLabel(r.market).toLowerCase()} (${r.abbr}). ${m.picks[0]?m.picks[0].why:""}`
-      : (m.picks[0]?m.picks[0].why:"");
+    const L=live[m.id]||{};
+    const b=busyInfoOf(L.stats||{}, L.rb||m.rb||{}, L.hs!=null?L.hs:m.hs, L.as!=null?L.as:m.as);
+    const expC=b.expC, o15=b.o15, o25=b.o25;
+    let dica, conf;
+    if(Number.isFinite(expC) && expC>=8.5){
+      dica=`🥅 ${expC.toFixed(1)} escanteios esperados → Over ${expC>=9.4?"8.5":"7.5"}`;
+      conf = expC>=9.4 ? 5 : 4;
+    } else if(Number.isFinite(o15) && o15>=65){
+      dica=`⚽ Over 1.5 gols · ${o15.toFixed(0)}%`;
+      conf = o15>=75 ? 5 : o15>=68 ? 4 : 3;
+    } else if(Number.isFinite(o25) && o25>=45){
+      dica=`⚽ Over 2.5 gols · ${o25.toFixed(0)}%`;
+      conf = o25>=52 ? 4 : 3;
+    } else {
+      dica=`🔥 Movimentado: ${b.shots} chutes · ${b.corners} escanteios`;
+      conf = 3;
+    }
+    const why = `🔥 ${b.shots} chutes · ${b.sot} no alvo · ${b.corners} escanteios${b.xg?` · xG ${b.xg.toFixed(2)}`:``} | 🤖 gols Over 1.5 ${Number.isFinite(o15)?o15.toFixed(0)+"%":"—"} · Over 2.5 ${Number.isFinite(o25)?o25.toFixed(0)+"%":"—"}${Number.isFinite(expC)?` · ~${expC.toFixed(1)} escanteios`:``}`;
     return `<div class="podium">
       <div class="rank">${i+1}</div>
-      <h3>${m.home} x ${m.away}</h3>
-      <div class="pick">${pick}</div>
+      <h3>${m.home} x ${m.away} ${fireLevelFrom(L.stats||{}, L.rb||m.rb||{}, L.hs!=null?L.hs:m.hs, L.as!=null?L.as:m.as)}</h3>
+      <div class="pick">${dica}</div>
       <div class="conf">${stars(conf)}</div>
       <div class="why">${why}</div>
     </div>`;
@@ -274,18 +313,34 @@ function statRow(m, key, label, h, a){
   </div>`;
 }
 
+function rbExpLine(r){
+  const expC=parseFloat(r.cornersExp), o05=parseFloat(r.over05), o15=parseFloat(r.over15), o25=parseFloat(r.over25);
+  const chips=[];
+  if(Number.isFinite(expC)) chips.push(`🥅 <b>~${expC.toFixed(1)} escanteios</b> esperados`);
+  if(Number.isFinite(o05)) chips.push(`⚽ Over 0.5 ${o05.toFixed(0)}%`);
+  if(Number.isFinite(o15)) chips.push(`Over 1.5 ${o15.toFixed(0)}%`);
+  if(Number.isFinite(o25)) chips.push(`Over 2.5 ${o25.toFixed(0)}%`);
+  if(!chips.length) return "";
+  return `<div class="rbexp" id="rbexp-${r._id}">🤖 Expectativa: ${chips.join(" · ")}</div>`;
+}
+
 function rbLine(m){
   const r=m.rb||{};
-  if(!r.market) return "";
-  const res = r.isCorrect==null ? "" : (r.isCorrect ? `<span class="rbres ok">✓ acertou</span>` : `<span class="rbres no">✗ errou</span>`);
-  const p = parseFloat(r.prob);
-  return `<div class="rbline" id="rb-${m.id}">
-    <span class="rbtag">🤖 ROBOBET</span>
-    <b>${rbLabel(r.market)} ${r.abbr||""}</b>
-    <span class="rbprob">${Number.isFinite(p)?p.toFixed(0)+"%":"—"} · @${r.odd||"—"}</span>
-    ${res}
-    ${Number.isFinite(p)?`<div class="rbprob-bg" style="width:100%"><div style="width:${Math.max(4,p)}%"></div></div>`:""}
-  </div>`;
+  let html="";
+  if(r.market){
+    const res = r.isCorrect==null ? "" : (r.isCorrect ? `<span class="rbres ok">✓ acertou</span>` : `<span class="rbres no">✗ errou</span>`);
+    const p = parseFloat(r.prob);
+    html+=`<div class="rbline" id="rb-${m.id}">
+      <span class="rbtag">🤖 ROBOBET</span>
+      <b>${rbLabel(r.market)} ${r.abbr||""}</b>
+      <span class="rbprob">${Number.isFinite(p)?p.toFixed(0)+"%":"—"} · @${r.odd||"—"}</span>
+      ${res}
+      ${Number.isFinite(p)?`<div class="rbprob-bg" style="width:100%"><div style="width:${Math.max(4,p)}%"></div></div>`:""}
+    </div>`;
+  }
+  const exp=rbExpLine({...r,_id:m.id});
+  if(exp) html+=exp;
+  return html;
 }
 
 function renderMatch(m){
@@ -313,7 +368,7 @@ function renderMatch(m){
     </div>`).join("");
 
   return `<div class="card" id="card-${m.id}">
-    <div class="league"><span><span class="livedot" id="dot-${m.id}" style="display:none">●</span>${m.league}</span><span class="clock" id="clock-${m.id}">${m.clock}</span></div>
+    <div class="league"><span><span class="livedot" id="dot-${m.id}" style="display:none">●</span><span class="fire" id="fire-${m.id}">${fireLevelFrom(m.stats, m.rb, m.hs, m.as)}</span>${m.league}</span><span class="clock" id="clock-${m.id}">${m.clock}</span></div>
     <div class="teams">
       <div class="tname">${m.home}</div>
       <div class="center"><div class="score" id="score-${m.id}">${m.hs} <span style="color:var(--mut);font-size:18px">x</span> ${m.as}</div><div class="vmid" id="vmid-${m.id}"></div></div>
@@ -355,13 +410,31 @@ function applyLive(id){
   if(el && L.hs!=null) el.innerHTML=L.hs+' <span style="color:var(--mut);font-size:18px">x</span> '+L.as;
   const cl=document.getElementById("clock-"+id); if(cl && L.clock) cl.textContent=L.clock;
   if(L.rb){
+    const r=L.rb;
     const rb=document.getElementById("rb-"+id);
-    if(rb){
-      const r=L.rb;
+    if(rb && r.market){
       const res = r.isCorrect==null ? "" : (r.isCorrect ? `<span class="rbres ok">✓ acertou</span>` : `<span class="rbres no">✗ errou</span>`);
       const p=parseFloat(r.prob);
       rb.innerHTML=`<span class="rbtag">🤖 ROBOBET</span><b>${rbLabel(r.market)} ${r.abbr||""}</b><span class="rbprob">${Number.isFinite(p)?p.toFixed(0)+"%":"—"} · @${r.odd||"—"}</span>${res}${Number.isFinite(p)?`<div class="rbprob-bg" style="width:100%"><div style="width:${Math.max(4,p)}%"></div></div>`:""}`;
     }
+    const chips=[];
+    const expC=parseFloat(r.cornersExp), o05=parseFloat(r.over05), o15=parseFloat(r.over15), o25=parseFloat(r.over25);
+    if(Number.isFinite(expC)) chips.push(`🥅 <b>~${expC.toFixed(1)} escanteios</b> esperados`);
+    if(Number.isFinite(o05)) chips.push(`⚽ Over 0.5 ${o05.toFixed(0)}%`);
+    if(Number.isFinite(o15)) chips.push(`Over 1.5 ${o15.toFixed(0)}%`);
+    if(Number.isFinite(o25)) chips.push(`Over 2.5 ${o25.toFixed(0)}%`);
+    if(chips.length){
+      let exp=document.getElementById("rbexp-"+id);
+      if(!exp){
+        const card=document.getElementById("card-"+id);
+        const picks=card&&card.querySelector(".picks");
+        if(picks) picks.insertAdjacentHTML("beforebegin", `<div class="rbexp" id="rbexp-${id}"></div>`);
+        exp=document.getElementById("rbexp-"+id);
+      }
+      if(exp) exp.innerHTML=`🤖 Expectativa: ${chips.join(" · ")}`;
+    }
+    const fire=document.getElementById("fire-"+id);
+    if(fire) fire.textContent=fireLevelFrom(L.stats, L.rb, L.hs, L.as);
   }
   if(!L.stats) return;
   const dot=document.getElementById("dot-"+id); if(dot) dot.style.display="inline";
@@ -479,9 +552,17 @@ async function refreshCycle(){
           L.hs=rbm.scoreHome; L.as=rbm.scoreAway;
           const st=(rbm.status||"").toLowerCase();
           L.clock = (st==="finished" || rbm.time==="FT") ? "Encerrado" : (rbm.time||L.clock);
-          if(rbm.best_suggestion){
-            const b=rbm.best_suggestion;
-            L.rb={abbr:b.abbreviation, prob:b.probability, odd:b.odd, market:b.market_type, isCorrect:b.is_correct};
+          if(rbm.forecast_data||rbm.best_suggestion){
+            const b=rbm.best_suggestion||{};
+            const mk=(rbm.forecast_data&&rbm.forecast_data.markets)||{};
+            const og=mk.over_goals||{}, co=mk.corners||{};
+            L.rb={
+              abbr:b.abbreviation, prob:b.probability, odd:b.odd, market:b.market_type, isCorrect:b.is_correct,
+              cornersExp: co.match_total && co.match_total.value,
+              over05: og.over_05_ft && og.over_05_ft.probability,
+              over15: og.over_15_ft && og.over_15_ft.probability,
+              over25: og.over_25_ft && og.over_25_ft.probability
+            };
           }
           rbNote="🤖 robobet ok";
         }
