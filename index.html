@@ -41,6 +41,11 @@
   .lt-pick .p{color:var(--gold);font-weight:800}
   .lt-pick.g{border-left:3px solid var(--green)}
   .lt-pick.c{border-left:3px solid var(--blue)}
+  .confdot{display:inline-flex;align-items:center;gap:7px;font-weight:800;font-size:12.5px;white-space:nowrap}
+  .confdot .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .confdot.hi{color:#4ade80}.confdot.hi .dot{background:#22c55e;box-shadow:0 0 8px #22c55e66}
+  .confdot.mid{color:#fbbf24}.confdot.mid .dot{background:#f5c518;box-shadow:0 0 8px #f5c51855}
+  .confdot.low{color:#f87171}.confdot.low .dot{background:#ef4444}
   .entrylist{display:flex;flex-direction:column;gap:8px}
   .entry{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:12px;padding:12px 14px}
   .entry .rk{font-size:19px;font-weight:900;color:#2a3d66;width:26px}
@@ -118,7 +123,7 @@
 
 <h2 class="sec">🎯 Melhores entradas AO VIVO <span class="meta" style="font-weight:400">— oportunidades de gols e escanteios acontecendo agora · só jogos ao vivo · atualiza a cada 60s</span></h2>
 <table class="livetable" id="livetable">
-  <thead><tr><th>#</th><th>Jogo</th><th>Placar</th><th>Entradas sugeridas</th></tr></thead>
+  <thead><tr><th>#</th><th>Jogo</th><th>Placar</th><th>Entradas sugeridas</th><th>Confiança</th></tr></thead>
   <tbody id="livetable-body"></tbody>
 </table>
 <div class="entrylist" id="entries"></div>
@@ -312,14 +317,23 @@ function renderLiveTable(){
     const o15=b.o15, o25=b.o25, expC=b.expC, corners=b.corners;
     const picks=[];
     // entrada de gol: Over 1.5/2.5 com prob
-    if(Number.isFinite(o15) && o15>=60) picks.push({cls:"g", txt:`⚽ Over 1.5 gol`, p:`${o15.toFixed(0)}%`});
-    if(Number.isFinite(o25) && o25>=40) picks.push({cls:"g", txt:`⚽ Over 2.5 gols`, p:`${o25.toFixed(0)}%`});
+    if(Number.isFinite(o15) && o15>=60) picks.push({cls:"g", txt:`⚽ Over 1.5 gol`, p:`${o15.toFixed(0)}%`, prob:o15});
+    if(Number.isFinite(o25) && o25>=40) picks.push({cls:"g", txt:`⚽ Over 2.5 gols`, p:`${o25.toFixed(0)}%`, prob:o25});
     // entrada de escanteio: linha acima da expectativa do modelo
     if(Number.isFinite(expC) && expC>=7.5){
       const line = expC>=9.4 ? "8.5" : "7.5";
       const nowC = b.corners>0? ` (${corners} já)`:"";
-      picks.push({cls:"c", txt:`🥅 Over ${line} esc`, p:`~${expC.toFixed(1)}${nowC}`});
+      // confiança de escanteio estimada pela expectativa do modelo vs linha
+      const cProb = expC>=9.8? 78 : expC>=8.5? 68 : 58;
+      picks.push({cls:"c", txt:`🥅 Over ${line} esc`, p:`~${expC.toFixed(1)}${nowC}`, prob:cProb});
     }
+    // confiança geral = maior probabilidade entre as entradas
+    let best=0; for(const p of picks){ if(p.prob>best) best=p.prob; }
+    let conf;
+    if(best>=75) conf={cls:"hi", label:"Alta"};
+    else if(best>=55) conf={cls:"mid", label:"Média"};
+    else conf={cls:"low", label:"Baixa"};
+    const stStars=best>=75?"★★★★★":best>=68?"★★★★☆":best>=60?"★★★☆☆":best>=50?"★★☆☆☆":"★☆☆☆☆";
     const scr=(hs!=null&&as!=null)? `${hs} x ${as}`:"";
     const picksHtml=picks.map(p=>`<span class="lt-pick ${p.cls}">${p.txt} <span class="p">${p.p}</span></span>`).join("");
     return `<tr>
@@ -327,6 +341,7 @@ function renderLiveTable(){
       <td class="lt-game">${m.home} x ${m.away}</td>
       <td>${scr}<span class="lt-clock">${m.clock}</span></td>
       <td>${picksHtml||`<span style="color:var(--mut)">pouca expectativa</span>`}</td>
+      <td><span class="confdot ${conf.cls}"><span class="dot"></span>${conf.label}<span style="color:var(--gold);letter-spacing:1px;font-size:11px">${stStars}</span></span></td>
     </tr>`;
   }).join("");
 }
