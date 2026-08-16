@@ -300,13 +300,18 @@ function renderEntries(){
     const opps=[];
     if(Number.isFinite(o15) && o15>=60) opps.push(`<span class="g-chip">⚽ Over 1.5 gols <b>${o15.toFixed(0)}%</b></span>`);
     if(Number.isFinite(o25) && o25>=40) opps.push(`<span class="g-chip">⚽ Over 2.5 gols <b>${o25.toFixed(0)}%</b></span>`);
-    if(Number.isFinite(expC) && expC>=7.5) opps.push(`<span class="c-chip">🥅 ~${expC.toFixed(1)} escanteios → Over ${expC>=9.4?"8.5":"7.5"}</span>`);
+    if(Number.isFinite(expC) && expC>=7.5){
+      const nowC=b.corners>0? `<b style="color:#7ea6ff">${b.corners} já</b> · `:"";
+      opps.push(`<span class="c-chip">🥅 ${nowC}~${expC.toFixed(1)} esperados → Over ${expC>=9.4?"8.5":"7.5"}</span>`);
+    }
     if(!opps.length) opps.push(`<span style="color:var(--mut)">pouca expectativa agora</span>`);
     const detail=[];
     if(b.goals>0) detail.push(`${b.goals} gols`);
     if(Number.isFinite(xgpre)) detail.push(`xG pré ${xgpre.toFixed(2)}`);
+    const xgLive=b.xg>0? b.xg.toFixed(2) : null;
+    if(xgLive) detail.push(`xG ao vivo ${xgLive}`);
     if(b.shots>0) detail.push(`${b.shots} chutes`);
-    if(b.corners>0) detail.push(`${b.corners} escanteios`);
+    if(b.corners>0) detail.push(`🥅 ${b.corners} escanteios até agora`);
     const momen=[];
     if(b.fire) momen.push("🔥 jogo quente");
     if(b.ball) momen.push("⚡ momentum");
@@ -412,6 +417,25 @@ async function fetchLive(){
   }catch(e){ return null; }
 }
 
+async function fetchLiveStats(id){
+  if(!id) return null;
+  try{
+    const r = await fetch("https://m."+"robo"+"bet.app/api/events/"+id+"/live-stats",{headers:{Accept:"application/json"}});
+    if(!r.ok) return null;
+    const d = await r.json();
+    const ft=(d.stats&&d.stats.ft)||{};
+    const h=ft.home||{}, a=ft.away||{};
+    const out={};
+    if(h.corners!=null && a.corners!=null) out.corners=[h.corners,a.corners];
+    if(h.xg!=null && a.xg!=null) out.xg=[h.xg,a.xg];
+    if(h.on_target!=null && a.on_target!=null) out.sot=[h.on_target,a.on_target];
+    if(h.off_target!=null && a.off_target!=null) out.shots=[(h.on_target||0)+(h.off_target||0),(a.on_target||0)+(a.off_target||0)];
+    if(h.attacks!=null && a.attacks!=null) out.attacks=[h.attacks,a.attacks];
+    if(h.dangerous_attacks!=null && a.dangerous_attacks!=null) out.danger=[h.dangerous_attacks,a.dangerous_attacks];
+    return Object.keys(out).length? out : null;
+  }catch(e){ return null; }
+}
+
 function buildDynamic(rbLive){
   const out=[];
   for(const item of rbLive){
@@ -419,6 +443,7 @@ function buildDynamic(rbLive){
     const home=(item.m.home||"").trim(), away=(item.m.away||"").trim();
     out.push({
       key:norm(home)+"|"+norm(away),
+      id:item.m.id,
       league:item.league, major:item.isMajor,
       home, away, hs:item.m.scoreHome, as:item.m.scoreAway,
       clock: (item.m.time||""),
@@ -526,7 +551,13 @@ async function refreshCycle(){
     }
 
     // jogos movimentados detectados automaticamente (todas as ligas)
-    if(rbLive){ DYNAMIC=buildDynamic(rbLive); renderDynGrid(); }
+    if(rbLive){ DYNAMIC=buildDynamic(rbLive); }
+    // estatísticas ao vivo (escanteios, xG, chutes) direto da fonte, por jogo da lista
+    for(const d of (DYNAMIC||[])){
+      const s=await fetchLiveStats(d.id);
+      if(s) d.stats=s;
+    }
+    renderDynGrid();
     renderEntries();
     const now=new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",second:"2-digit"});
     document.getElementById("timestamp").textContent=`🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓`;
