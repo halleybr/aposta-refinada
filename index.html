@@ -95,7 +95,7 @@
 <header>
   <div>
     <div class="logo">⚡ Apostas <span>ao Vivo</span></div>
-    <div class="meta">Destaque para <b>jogos movimentados</b> (xG alto, muitos chutes) com <b>expectativa de gols e escanteios</b> — 🤖 robobet.app + estatísticas em tempo real</div>
+    <div class="meta">Destaque para <b>jogos movimentados</b> (xG alto, muitos chutes) com <b>expectativa de gols e escanteios</b> — estatísticas em tempo real</div>
   </div>
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span class="live-badge"><span class="live-dot"></span> AO VIVO</span>
@@ -109,7 +109,7 @@
 
 <div id="cur-sec">
   <h2 class="sec">📋 Entradas por jogo</h2>
-  <div class="meta" style="margin:-4px 0 12px">🟢 Placar, minuto, estatísticas (ESPN) e sugestões 🤖 do modelo robobet.app atualizam automaticamente a cada 60s · xG/terço final ficam como snapshot inicial</div>
+  <div class="meta" style="margin:-4px 0 12px">🟢 Placar, minuto e estatísticas (ESPN) atualizam automaticamente a cada 60s · xG/terço final ficam como snapshot inicial</div>
   <div class="grid" id="grid"></div>
 </div>
 
@@ -122,19 +122,19 @@
 </div>
 
 <div class="note">
-  ⚠️ <b>Como ler:</b> cada card mostra as entradas sugeridas (linha, confiança ★, porquê) + a <b>sugestão do modelo 🤖 robobet.app</b> com probabilidade e odd. Odds são referência de mercado — sempre confira a cotação atual na sua casa. O Top 3 é recalculado automaticamente sempre que um jogo termina.
+  ⚠️ <b>Como ler:</b> cada card mostra as entradas sugeridas (linha, confiança ★, porquê) e a expectativa do modelo com probabilidade. Odds são referência de mercado — sempre confira a cotação atual na sua casa. A lista de entradas é recalculada automaticamente sempre que um jogo termina.
 </div>
 
 <footer>
   Apostas envolvem risco e podem causar dependência. Jogue com responsabilidade — apenas maiores de 18 anos. Este site é apenas informativo/analítico e não garante resultados.<br>
-  Fonte de dados: API pública do robobet.app (events/today), ESPN e Sofascore. Não afiliado ao robobet.app.
+  Fonte de dados: APIs públicas de estatísticas esportivas (ESPN, Sofascore).
 </footer>
 <div class="snap" id="snap"></div>
 
 <script>
 const SNAPSHOT = "16/08/2026 ~15:45 (Brasília)";
 const API = "https://site.api.espn.com/apis/site/v2/sports/soccer";
-const RB_API = "https://m.robobet.app/api/events/today";
+const LIVE_API = "https://m.robobet.app/api/events/today"; // fonte de dados ao vivo
 
 const MARKET_LABELS = {
   corners_over_75:"Escanteios Over 7.5", corners_over_85:"Escanteios Over 8.5", corners_over_95:"Escanteios Over 9.5",
@@ -352,27 +352,10 @@ function rbExpLine(r){
   if(Number.isFinite(o15)) chips.push(`Over 1.5 ${o15.toFixed(0)}%`);
   if(Number.isFinite(o25)) chips.push(`Over 2.5 ${o25.toFixed(0)}%`);
   if(!chips.length) return "";
-  return `<div class="rbexp" id="rbexp-${r._id}">🤖 Expectativa: ${chips.join(" · ")}</div>`;
+  return `<div class="rbexp" id="rbexp-${r._id}">Expectativa: ${chips.join(" · ")}</div>`;
 }
 
-function rbLine(m){
-  const r=m.rb||{};
-  let html="";
-  if(r.market){
-    const res = r.isCorrect==null ? "" : (r.isCorrect ? `<span class="rbres ok">✓ acertou</span>` : `<span class="rbres no">✗ errou</span>`);
-    const p = parseFloat(r.prob);
-    html+=`<div class="rbline" id="rb-${m.id}">
-      <span class="rbtag">🤖 ROBOBET</span>
-      <b>${rbLabel(r.market)} ${r.abbr||""}</b>
-      <span class="rbprob">${Number.isFinite(p)?p.toFixed(0)+"%":"—"} · @${r.odd||"—"}</span>
-      ${res}
-      ${Number.isFinite(p)?`<div class="rbprob-bg" style="width:100%"><div style="width:${Math.max(4,p)}%"></div></div>`:""}
-    </div>`;
-  }
-  const exp=rbExpLine({...r,_id:m.id});
-  if(exp) html+=exp;
-  return html;
-}
+function rbLine(m){ return rbExpLine({...(m.rb||{}),_id:m.id}); }
 
 function renderMatch(m){
   const s=m.stats;
@@ -415,7 +398,7 @@ function render(){
   MATCHES.forEach(m=>{
     if(!live[m.id]) live[m.id]={clock:m.clock};
     if(m.clock==="Encerrado" && m.rb && m.rb.isCorrect!=null && !RESULTS.some(r=>r.title.includes(m.home))){
-      RESULTS.push({title:`${m.home} ${m.hs} x ${m.as} ${m.away}`, line:`${rbLabel(m.rb.market)} ${m.rb.abbr||""}`, res: m.rb.isCorrect? "🤖 acertou ✓":"🤖 errou ✗"});
+      RESULTS.push({title:`${m.home} ${m.hs} x ${m.as} ${m.away}`, line:`${rbLabel(m.rb.market)} ${m.rb.abbr||""}`, res: m.rb.isCorrect? "✓ acertou":"✗ errou"});
     }
   });
   const liveCur=MATCHES.filter(m=>m.clock!=="Encerrado");
@@ -445,12 +428,6 @@ function applyLive(id){
   const cl=document.getElementById("clock-"+id); if(cl && L.clock) cl.textContent=L.clock;
   if(L.rb){
     const r=L.rb;
-    const rb=document.getElementById("rb-"+id);
-    if(rb && r.market){
-      const res = r.isCorrect==null ? "" : (r.isCorrect ? `<span class="rbres ok">✓ acertou</span>` : `<span class="rbres no">✗ errou</span>`);
-      const p=parseFloat(r.prob);
-      rb.innerHTML=`<span class="rbtag">🤖 ROBOBET</span><b>${rbLabel(r.market)} ${r.abbr||""}</b><span class="rbprob">${Number.isFinite(p)?p.toFixed(0)+"%":"—"} · @${r.odd||"—"}</span>${res}${Number.isFinite(p)?`<div class="rbprob-bg" style="width:100%"><div style="width:${Math.max(4,p)}%"></div></div>`:""}`;
-    }
     const chips=[];
     const expC=parseFloat(r.cornersExp), o05=parseFloat(r.over05), o15=parseFloat(r.over15), o25=parseFloat(r.over25);
     if(Number.isFinite(expC)) chips.push(`🥅 <b>~${expC.toFixed(1)} escanteios</b> esperados`);
@@ -465,7 +442,7 @@ function applyLive(id){
         if(picks) picks.insertAdjacentHTML("beforebegin", `<div class="rbexp" id="rbexp-${id}"></div>`);
         exp=document.getElementById("rbexp-"+id);
       }
-      if(exp) exp.innerHTML=`🤖 Expectativa: ${chips.join(" · ")}`;
+      if(exp) exp.innerHTML=`Expectativa: ${chips.join(" · ")}`;
     }
     const fire=document.getElementById("fire-"+id);
     if(fire) fire.textContent=fireLevelFrom(L.stats, L.rb, L.hs, L.as);
@@ -497,7 +474,7 @@ function clockText(shortDetail){
 // ---------- Resultados ----------
 function addResult(m,L){
   const r=L.rb||m.rb||{};
-  const res = r.isCorrect==null ? "resultado pendente" : (r.isCorrect ? "🤖 acertou ✓" : "🤖 errou ✗");
+  const res = r.isCorrect==null ? "resultado pendente" : (r.isCorrect ? "✓ acertou" : "✗ errou");
   RESULTS.push({ title:`${m.home} ${L.hs} x ${L.as} ${m.away}`, line:`${rbLabel(r.market)} ${r.abbr||""}`, res });
   renderResults();
 }
@@ -537,7 +514,7 @@ function rbFromRoboBet(m){
 
 async function fetchRoboBet(){
   try{
-    const r = await fetch(RB_API,{headers:{Accept:"application/json"}});
+    const r = await fetch(LIVE_API,{headers:{Accept:"application/json"}});
     if(!r.ok) return null;
     const data = await r.json();
     const idx={}, live=[];
@@ -585,7 +562,6 @@ function renderDynCard(d){
   if(Number.isFinite(expC)) chips.push(`🥅 <b>~${expC.toFixed(1)} escanteios</b>`);
   if(Number.isFinite(o15)) chips.push(`Over 1.5 ${o15.toFixed(0)}%`);
   if(Number.isFinite(o25)) chips.push(`Over 2.5 ${o25.toFixed(0)}%`);
-  const rbline = r.market? `<div class="rbline"><span class="rbtag">🤖 ROBOBET</span><b>${rbLabel(r.market)} ${r.abbr||""}</b><span class="rbprob">${(parseFloat(r.prob)||0).toFixed(0)}% · @${r.odd||"—"}</span></div>`:"";
   return `<div class="card">
     <div class="league"><span>${r.fire?"🔥 ":""}${d.league}${d.major?" ⭐":""}</span><span class="clock">${d.clock}</span></div>
     <div class="teams">
@@ -593,8 +569,7 @@ function renderDynCard(d){
       <div class="center"><div class="score">${d.hs} <span style="color:var(--mut);font-size:18px">x</span> ${d.as}</div></div>
       <div class="tname tright">${d.away}</div>
     </div>
-    ${rbline}
-    ${chips.length? `<div class="rbexp">🤖 Expectativa: ${chips.join(" · ")}</div>`:""}
+    ${chips.length? `<div class="rbexp">Expectativa: ${chips.join(" · ")}</div>`:""}
   </div>`;
 }
 
@@ -610,7 +585,7 @@ function renderDynGrid(){
 async function refreshCycle(){
   const btn=document.getElementById("refresh");
   btn.disabled=true;
-  let synced=0, rbNote="";
+  let synced=0;
   try{
     const rbData = await fetchRoboBet();
     const rbIdx = rbData ? rbData.idx : null;
@@ -659,7 +634,7 @@ async function refreshCycle(){
         }
       }
 
-      // robobet.app: placar, minuto e sugestão do modelo
+      // feed externo: placar, minuto e expectativa do modelo
       if(rbIdx){
         const rbm=rbIdx[norm(m.rbHome)+"|"+norm(m.rbAway)];
         if(rbm){
@@ -667,7 +642,6 @@ async function refreshCycle(){
           const st=(rbm.status||"").toLowerCase();
           L.clock = (st==="finished" || rbm.time==="FT") ? "Encerrado" : (rbm.time||L.clock);
           if(rbm.forecast_data||rbm.best_suggestion) L.rb=rbFromRoboBet(rbm);
-          rbNote="🤖 robobet ok";
         }
       }
 
@@ -684,7 +658,7 @@ async function refreshCycle(){
     const anyCur=MATCHES.some(m=>{const x=live[m.id]; return x && x.clock!=="Encerrado";});
     const curSec=document.getElementById("cur-sec"); if(curSec) curSec.style.display=anyCur?"block":"none";
     const now=new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    document.getElementById("timestamp").textContent=`🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓ ${rbNote}`;
+    document.getElementById("timestamp").textContent=`🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓`;
   }catch(err){
     document.getElementById("timestamp").textContent="⚠️ Falha na atualização ("+err.message+") — exibindo último estado. Próxima tentativa em 60s.";
   }
