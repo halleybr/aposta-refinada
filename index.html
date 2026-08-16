@@ -34,7 +34,9 @@
   .entrylist{display:flex;flex-direction:column;gap:8px}
   .entry{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:12px;padding:12px 14px}
   .entry .rk{font-size:19px;font-weight:900;color:#2a3d66;width:26px}
-  .entry .mt{font-weight:800;font-size:14px}
+  .entry .mt{font-weight:800;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .entry .scr{color:var(--green);font-size:17px;font-weight:900;background:#0e2416;border:1px solid #24401b;padding:1px 9px;border-radius:7px;white-space:nowrap}
+  .entry .clock{font-size:12px;background:#3b82f6;color:#eaf2ff}
   .entry .ml{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
   .entry .opp{font-size:12.5px;line-height:1.7;text-align:right;white-space:nowrap}
   .entry .opp b{color:var(--gold)}
@@ -317,10 +319,11 @@ function renderEntries(){
     if(Number.isFinite(xgpre)) detail.push(`xG pré ${xgpre.toFixed(2)}`);
     if(b.shots>0) detail.push(`${b.shots} chutes`);
     if(b.corners>0) detail.push(`${b.corners} escanteios`);
+    const scr = (hs!=null && as!=null) ? `<span class="scr">${hs} x ${as}</span>` : "";
     return `<div class="entry">
       <div class="rk">${i+1}</div>
       <div>
-        <div class="mt">${b.fire?"🔥 ":""}${m.home} x ${m.away} <span class="clock">${clock}</span></div>
+        <div class="mt">${b.fire?"🔥 ":""}${m.home} ${scr} ${m.away} <span class="clock">${clock}</span></div>
         <div class="ml">${m.league}${detail.length?` · ${detail.join(" · ")}`:""}</div>
       </div>
       <div class="opp">${opps.join("<br>")}</div>
