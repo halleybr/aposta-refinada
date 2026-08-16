@@ -31,6 +31,15 @@
   .podium .pick{font-size:17px;font-weight:800;color:var(--gold);margin:6px 0}
   .podium .why{color:var(--mut);font-size:12.5px;line-height:1.5}
   .conf{color:var(--gold);letter-spacing:2px;font-size:13px}
+  .entrylist{display:flex;flex-direction:column;gap:8px}
+  .entry{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:12px;padding:12px 14px}
+  .entry .rk{font-size:19px;font-weight:900;color:#2a3d66;width:26px}
+  .entry .mt{font-weight:800;font-size:14px}
+  .entry .ml{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+  .entry .opp{font-size:12.5px;line-height:1.7;text-align:right;white-space:nowrap}
+  .entry .opp b{color:var(--gold)}
+  .entry .opp .c-chip{color:#7ea6ff}
+  .entry .opp .g-chip{color:#4ade80}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px}
   .league{display:flex;justify-content:space-between;align-items:center;color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.6px;font-weight:700}
@@ -95,12 +104,14 @@
   <div class="meta" id="timestamp" style="width:100%"></div>
 </header>
 
-<h2 class="sec">🏆 Top 3 do momento <span id="topnote" class="meta" style="font-weight:400">— recalcula automaticamente a cada jogo encerrado</span></h2>
-<div class="hero" id="hero"></div>
+<h2 class="sec">🎯 Melhores entradas AO VIVO <span class="meta" style="font-weight:400">— oportunidades de gols e escanteios acontecendo agora · só jogos ao vivo · atualiza a cada 60s</span></h2>
+<div class="entrylist" id="entries"></div>
 
-<h2 class="sec">📋 Entradas por jogo</h2>
-<div class="meta" style="margin:-4px 0 12px">🟢 Placar, minuto, estatísticas (ESPN) e sugestões 🤖 do modelo robobet.app atualizam automaticamente a cada 60s · xG/terço final ficam como snapshot inicial</div>
-<div class="grid" id="grid"></div>
+<div id="cur-sec">
+  <h2 class="sec">📋 Entradas por jogo</h2>
+  <div class="meta" style="margin:-4px 0 12px">🟢 Placar, minuto, estatísticas (ESPN) e sugestões 🤖 do modelo robobet.app atualizam automaticamente a cada 60s · xG/terço final ficam como snapshot inicial</div>
+  <div class="grid" id="grid"></div>
+</div>
 
 <h2 class="sec" id="results-head" style="display:none">🏁 Jogos encerrados hoje</h2>
 <div id="results" class="meta" style="margin:-4px 0 4px"><ul id="results-list"></ul></div>
@@ -271,53 +282,54 @@ function fireLevelFrom(st, rb, hs, as){
 function isFinished(m){ const L=live[m.id]; return L && L.clock==="Encerrado"; }
 function rankOfMatch(m){
   const L=live[m.id]||{};
-  return scoreFrom(L.rb||m.rb||{}, L.hs!=null?L.hs:m.hs, L.as!=null?L.as:m.as, L.stats||{});
+  return scoreFrom(L.rb||m.rb||{}, L.hs!=null?L.hs:m.hs, L.as!=null?L.as:m.as, L.stats||{}) + 12;
 }
-function rankOfDyn(d){ return scoreFrom(d.rb||{}, d.hs, d.as, {}); }
-function computeTop3(){
-  const pool=[...MATCHES.filter(m=>!isFinished(m)), ...(DYNAMIC||[]).filter(d=>d.clock!=="Encerrado")];
+function rankOfDyn(d){ return scoreFrom(d.rb||{}, d.hs, d.as, {}) + (d.major? 12 : 0); }
+function computeEntries(){
+  const pool=[...MATCHES.filter(m=>!isFinished(m)).map(m=>({isCurated:true,m})),
+              ...(DYNAMIC||[]).filter(d=>d.clock!=="Encerrado").map(d=>({isCurated:false,m:d}))];
   if(!pool.length) return [];
-  const rank = x=> (x.picks? rankOfMatch(x) : rankOfDyn(x));
-  return pool.slice().sort((a,b)=>rank(b)-rank(a)).slice(0,3);
+  return pool.sort((a,b)=>{
+    const sa=a.isCurated? rankOfMatch(a.m) : rankOfDyn(a.m);
+    const sb=b.isCurated? rankOfMatch(b.m) : rankOfDyn(b.m);
+    return sb-sa;
+  }).slice(0,10);
 }
-function renderHero(){
-  const hero=document.getElementById("hero");
-  const top=computeTop3();
-  if(!top.length){
-    hero.innerHTML=`<div class="podium" style="grid-column:1/-1"><h3>Sem jogos ao vivo no momento</h3><div class="why">Quando um jogo terminar, o Top 3 é recalculado automaticamente com os jogos mais movimentados.</div></div>`;
+function renderEntries(){
+  const el=document.getElementById("entries");
+  if(!el) return;
+  const list=computeEntries();
+  if(!list.length){
+    el.innerHTML=`<div class="entry" style="border-left-color:var(--blue)"><div class="rk">—</div><div><div class="mt">Nenhum jogo ao vivo no momento</div><div class="ml">As entradas aparecem automaticamente quando jogos entram no ar</div></div></div>`;
     return;
   }
-  hero.innerHTML=top.map((x,i)=>{
-    const isMatch=!!x.picks;
-    const home=x.home, away=x.away;
-    const L=isMatch? (live[x.id]||{}) : x;
-    const hs=isMatch? (L.hs!=null?L.hs:x.hs) : x.hs;
-    const as=isMatch? (L.as!=null?L.as:x.as) : x.as;
-    const rb=isMatch? (L.rb||x.rb||{}) : (x.rb||{});
-    const st=isMatch? (L.stats||{}) : {};
+  el.innerHTML=list.map((x,i)=>{
+    const m=x.m, isCurated=x.isCurated;
+    const L=isCurated? (live[m.id]||{}) : m;
+    const hs=isCurated? (L.hs!=null?L.hs:m.hs):m.hs;
+    const as=isCurated? (L.as!=null?L.as:m.as):m.as;
+    const rb=isCurated? (L.rb||m.rb||{}):(m.rb||{});
+    const st=isCurated? (L.stats||{}):{};
+    const clock=isCurated? (L.clock||m.clock):m.clock;
     const b=busyInfoOf(st, rb, hs, as);
-    const expC=b.expC, o15=b.o15, o25=b.o25;
-    let dica, conf;
-    if(Number.isFinite(expC) && expC>=8.5){
-      dica=`🥅 ${expC.toFixed(1)} escanteios esperados → Over ${expC>=9.4?"8.5":"7.5"}`;
-      conf = expC>=9.4 ? 5 : 4;
-    } else if(Number.isFinite(o15) && o15>=65){
-      dica=`⚽ Over 1.5 gols · ${o15.toFixed(0)}%`;
-      conf = o15>=75 ? 5 : o15>=68 ? 4 : 3;
-    } else if(Number.isFinite(o25) && o25>=45){
-      dica=`⚽ Over 2.5 gols · ${o25.toFixed(0)}%`;
-      conf = o25>=52 ? 4 : 3;
-    } else {
-      dica=`🔥 Movimentado: ${b.shots} chutes · ${b.corners} escanteios`;
-      conf = 3;
-    }
-    const why = `🔥 ${b.shots} chutes · ${b.sot} no alvo · ${b.corners} escanteios${b.xg?` · xG ${b.xg.toFixed(2)}`:``}${Number.isFinite(b.xgpre)?` · xG pré ${b.xgpre.toFixed(2)}`:``} | 🤖 gols Over 1.5 ${Number.isFinite(o15)?o15.toFixed(0)+"%":"—"} · Over 2.5 ${Number.isFinite(o25)?o25.toFixed(0)+"%":"—"}${Number.isFinite(expC)?` · ~${expC.toFixed(1)} escanteios`:``}`;
-    return `<div class="podium">
-      <div class="rank">${i+1}</div>
-      <h3>${home} x ${away} ${fireLevelFrom(st, rb, hs, as)}</h3>
-      <div class="pick">${dica}</div>
-      <div class="conf">${stars(conf)}</div>
-      <div class="why">${why}</div>
+    const expC=b.expC, o15=b.o15, o25=b.o25, xgpre=b.xgpre;
+    const opps=[];
+    if(Number.isFinite(o15) && o15>=60) opps.push(`<span class="g-chip">⚽ Over 1.5 gols <b>${o15.toFixed(0)}%</b></span>`);
+    if(Number.isFinite(o25) && o25>=40) opps.push(`<span class="g-chip">⚽ Over 2.5 gols <b>${o25.toFixed(0)}%</b></span>`);
+    if(Number.isFinite(expC) && expC>=7.5) opps.push(`<span class="c-chip">🥅 ~${expC.toFixed(1)} escanteios → Over ${expC>=9.4?"8.5":"7.5"}</span>`);
+    if(!opps.length) opps.push(`<span style="color:var(--mut)">pouca expectativa agora</span>`);
+    const detail=[];
+    if(b.goals>0) detail.push(`${b.goals} gols`);
+    if(Number.isFinite(xgpre)) detail.push(`xG pré ${xgpre.toFixed(2)}`);
+    if(b.shots>0) detail.push(`${b.shots} chutes`);
+    if(b.corners>0) detail.push(`${b.corners} escanteios`);
+    return `<div class="entry">
+      <div class="rk">${i+1}</div>
+      <div>
+        <div class="mt">${b.fire?"🔥 ":""}${m.home} x ${m.away} <span class="clock">${clock}</span></div>
+        <div class="ml">${m.league}${detail.length?` · ${detail.join(" · ")}`:""}</div>
+      </div>
+      <div class="opp">${opps.join("<br>")}</div>
     </div>`;
   }).join("");
 }
@@ -406,9 +418,12 @@ function render(){
       RESULTS.push({title:`${m.home} ${m.hs} x ${m.as} ${m.away}`, line:`${rbLabel(m.rb.market)} ${m.rb.abbr||""}`, res: m.rb.isCorrect? "🤖 acertou ✓":"🤖 errou ✗"});
     }
   });
-  document.getElementById("grid").innerHTML = MATCHES.map(renderMatch).join("");
+  const liveCur=MATCHES.filter(m=>m.clock!=="Encerrado");
+  document.getElementById("grid").innerHTML = liveCur.map(renderMatch).join("");
+  const sec=document.getElementById("cur-sec");
+  if(sec) sec.style.display = liveCur.length? "block":"none";
   document.getElementById("snap").textContent = "📸 Snapshot de estatísticas: " + SNAPSHOT;
-  renderHero();
+  renderEntries();
   renderResults();
 }
 
@@ -608,6 +623,7 @@ async function refreshCycle(){
       const ev = events.find(e=>eventMatches(e,m));
       const L=live[m.id]={...live[m.id]};
       const wasFinished = L.clock==="Encerrado";
+      L.clock="Encerrado"; // se nenhuma fonte confirmar que está ao vivo, é encerrado
 
       if(ev){
         const st=ev.status&&ev.status.type||{};
@@ -656,12 +672,17 @@ async function refreshCycle(){
       }
 
       applyLive(m.id);
-      if(!wasFinished && L.clock==="Encerrado"){ addResult(m,L); }
+      if(!wasFinished && L.clock==="Encerrado"){
+        addResult(m,L);
+        const card=document.getElementById("card-"+m.id); if(card) card.style.display="none";
+      }
     }
 
     // jogos movimentados detectados automaticamente (todas as ligas)
     if(rbLive){ DYNAMIC=buildDynamic(rbLive); renderDynGrid(); }
-    renderHero();
+    renderEntries();
+    const anyCur=MATCHES.some(m=>{const x=live[m.id]; return x && x.clock!=="Encerrado";});
+    const curSec=document.getElementById("cur-sec"); if(curSec) curSec.style.display=anyCur?"block":"none";
     const now=new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",second:"2-digit"});
     document.getElementById("timestamp").textContent=`🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓ ${rbNote}`;
   }catch(err){
