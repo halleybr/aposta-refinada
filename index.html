@@ -107,12 +107,6 @@
 <h2 class="sec">🎯 Melhores entradas AO VIVO <span class="meta" style="font-weight:400">— oportunidades de gols e escanteios acontecendo agora · só jogos ao vivo · atualiza a cada 60s</span></h2>
 <div class="entrylist" id="entries"></div>
 
-<div id="cur-sec">
-  <h2 class="sec">📋 Entradas por jogo</h2>
-  <div class="meta" style="margin:-4px 0 12px">🟢 Placar, minuto e estatísticas (ESPN) atualizam automaticamente a cada 60s · xG/terço final ficam como snapshot inicial</div>
-  <div class="grid" id="grid"></div>
-</div>
-
 <h2 class="sec" id="results-head" style="display:none">🏁 Jogos encerrados hoje</h2>
 <div id="results" class="meta" style="margin:-4px 0 4px"><ul id="results-list"></ul></div>
 
@@ -334,66 +328,6 @@ function renderEntries(){
   }).join("");
 }
 
-// ---------- Renderização dos cards ----------
-function statRow(m, key, label, h, a){
-  const hp=pct(h,a), ap=100-hp;
-  const hw=parseFloat(h)>parseFloat(a), aw=parseFloat(a)>parseFloat(h);
-  return `<div class="statbar" id="row-${m.id}-${key}">
-    <b id="v-${m.id}-${key}-h" style="text-align:left">${h}</b><span style="text-align:center">${label}</span><b id="v-${m.id}-${key}-a" style="text-align:right">${a}</b>
-    <div class="bar" id="bar-${m.id}-${key}" style="grid-column:1/-1"><div class="h ${hw?'win':''}" style="width:${hp}%"></div><div class="a ${aw?'win':''}" style="width:${ap}%"></div></div>
-  </div>`;
-}
-
-function rbExpLine(r){
-  const expC=parseFloat(r.cornersExp), o05=parseFloat(r.over05), o15=parseFloat(r.over15), o25=parseFloat(r.over25);
-  const chips=[];
-  if(Number.isFinite(expC)) chips.push(`🥅 <b>~${expC.toFixed(1)} escanteios</b> esperados`);
-  if(Number.isFinite(o05)) chips.push(`⚽ Over 0.5 ${o05.toFixed(0)}%`);
-  if(Number.isFinite(o15)) chips.push(`Over 1.5 ${o15.toFixed(0)}%`);
-  if(Number.isFinite(o25)) chips.push(`Over 2.5 ${o25.toFixed(0)}%`);
-  if(!chips.length) return "";
-  return `<div class="rbexp" id="rbexp-${r._id}">Expectativa: ${chips.join(" · ")}</div>`;
-}
-
-function rbLine(m){ return rbExpLine({...(m.rb||{}),_id:m.id}); }
-
-function renderMatch(m){
-  const s=m.stats;
-  let rows="";
-  if(s.poss) rows+=statRow(m,"poss","Posse", s.poss[0]+"%", s.poss[1]+"%");
-  if(s.shots) rows+=statRow(m,"shots","Chutes", s.shots[0], s.shots[1]);
-  if(s.sot) rows+=statRow(m,"sot","No alvo", s.sot[0], s.sot[1]);
-  if(s.xg) rows+=statRow(m,"xg","xG (snap)", s.xg[0].toFixed(2), s.xg[1].toFixed(2));
-  if(s.corners) rows+=statRow(m,"corners","Escanteios", s.corners[0], s.corners[1]);
-  if(s.fthird) rows+=statRow(m,"fthird","Terço final (snap)", s.fthird[0], s.fthird[1]);
-  if(s.xgot) rows+=statRow(m,"xgot","xG no alvo (snap)", s.xgot[0].toFixed(2), s.xgot[1].toFixed(2));
-  if(!rows) rows=`<div class="statbar" id="nostats-${m.id}" style="color:var(--mut)">— estatísticas detalhadas indisponíveis —</div>`;
-
-  const picksHtml = m.picks.map(p=>`
-    <div class="pick">
-      <div class="ic">${p.type==='g'?'⚽':p.type==='c'?'🥅':'🎯'}</div>
-      <div style="flex:1">
-        <div class="line"><span class="tag ${p.type==='g'?'g':p.type==='c'?'c':'o'}">${p.type==='g'?'GOLS':p.type==='c'?'ESCANTEIOS':'JOGO'}</span>${p.line}
-          <div class="conf">${stars(p.conf)}</div>
-          <div class="why">${p.why}</div>
-        </div>
-      </div>
-      <div class="odds">${p.odds}</div>
-    </div>`).join("");
-
-  return `<div class="card" id="card-${m.id}">
-    <div class="league"><span><span class="livedot" id="dot-${m.id}" style="display:none">●</span><span class="fire" id="fire-${m.id}">${fireLevelFrom(m.stats, m.rb, m.hs, m.as)}</span>${m.league}</span><span class="clock" id="clock-${m.id}">${m.clock}</span></div>
-    <div class="teams">
-      <div class="tname">${m.home}</div>
-      <div class="center"><div class="score" id="score-${m.id}">${m.hs} <span style="color:var(--mut);font-size:18px">x</span> ${m.as}</div><div class="vmid" id="vmid-${m.id}"></div></div>
-      <div class="tname tright">${m.away}</div>
-    </div>
-    ${rows}
-    ${rbLine(m)}
-    <div class="picks">${picksHtml}</div>
-  </div>`;
-}
-
 function render(){
   MATCHES.forEach(m=>{
     if(!live[m.id]) live[m.id]={clock:m.clock};
@@ -401,67 +335,12 @@ function render(){
       RESULTS.push({title:`${m.home} ${m.hs} x ${m.as} ${m.away}`, line:`${rbLabel(m.rb.market)} ${m.rb.abbr||""}`, res: m.rb.isCorrect? "✓ acertou":"✗ errou"});
     }
   });
-  const liveCur=MATCHES.filter(m=>m.clock!=="Encerrado");
-  document.getElementById("grid").innerHTML = liveCur.map(renderMatch).join("");
-  const sec=document.getElementById("cur-sec");
-  if(sec) sec.style.display = liveCur.length? "block":"none";
   document.getElementById("snap").textContent = "📸 Snapshot de estatísticas: " + SNAPSHOT;
   renderEntries();
   renderResults();
 }
 
 // ---------- Atualização ao vivo ----------
-const LABELS={poss:"Posse",shots:"Chutes",sot:"No alvo",corners:"Escanteios"};
-
-function ensureRow(id,key,val){
-  const card=document.getElementById("card-"+id); if(!card) return;
-  const picks=card.querySelector(".picks"); if(!picks) return;
-  const cfg=LIVE_KEYS[key];
-  picks.insertAdjacentHTML("beforebegin", statRow({id}, key, LABELS[key], cfg.fmt(val[0]), cfg.fmt(val[1])));
-  const ns=document.getElementById("nostats-"+id); if(ns) ns.remove();
-}
-
-function applyLive(id){
-  const L=live[id]; if(!L) return;
-  const el=document.getElementById("score-"+id);
-  if(el && L.hs!=null) el.innerHTML=L.hs+' <span style="color:var(--mut);font-size:18px">x</span> '+L.as;
-  const cl=document.getElementById("clock-"+id); if(cl && L.clock) cl.textContent=L.clock;
-  if(L.rb){
-    const r=L.rb;
-    const chips=[];
-    const expC=parseFloat(r.cornersExp), o05=parseFloat(r.over05), o15=parseFloat(r.over15), o25=parseFloat(r.over25);
-    if(Number.isFinite(expC)) chips.push(`🥅 <b>~${expC.toFixed(1)} escanteios</b> esperados`);
-    if(Number.isFinite(o05)) chips.push(`⚽ Over 0.5 ${o05.toFixed(0)}%`);
-    if(Number.isFinite(o15)) chips.push(`Over 1.5 ${o15.toFixed(0)}%`);
-    if(Number.isFinite(o25)) chips.push(`Over 2.5 ${o25.toFixed(0)}%`);
-    if(chips.length){
-      let exp=document.getElementById("rbexp-"+id);
-      if(!exp){
-        const card=document.getElementById("card-"+id);
-        const picks=card&&card.querySelector(".picks");
-        if(picks) picks.insertAdjacentHTML("beforebegin", `<div class="rbexp" id="rbexp-${id}"></div>`);
-        exp=document.getElementById("rbexp-"+id);
-      }
-      if(exp) exp.innerHTML=`Expectativa: ${chips.join(" · ")}`;
-    }
-    const fire=document.getElementById("fire-"+id);
-    if(fire) fire.textContent=fireLevelFrom(L.stats, L.rb, L.hs, L.as);
-  }
-  if(!L.stats) return;
-  const dot=document.getElementById("dot-"+id); if(dot) dot.style.display="inline";
-  for(const key of Object.keys(LIVE_KEYS)){
-    const val=L.stats[key]; if(!val) continue;
-    const cfg=LIVE_KEYS[key];
-    let vh=document.getElementById(`v-${id}-${key}-h`);
-    if(!vh){ ensureRow(id,key,val); vh=document.getElementById(`v-${id}-${key}-h`); if(!vh) continue; }
-    vh.textContent=cfg.fmt(val[0]);
-    const va=document.getElementById(`v-${id}-${key}-a`); if(va) va.textContent=cfg.fmt(val[1]);
-    const bar=document.getElementById(`bar-${id}-${key}`); if(!bar) continue;
-    const hp=pct(val[0],val[1]);
-    bar.innerHTML=`<div class="h ${parseFloat(val[0])>parseFloat(val[1])?'win':''}" style="width:${hp}%"></div><div class="a ${parseFloat(val[1])>parseFloat(val[0])?'win':''}" style="width:${100-hp}%"></div>`;
-  }
-}
-
 function clockText(shortDetail){
   if(!shortDetail) return "";
   const d=shortDetail.toUpperCase();
@@ -645,18 +524,14 @@ async function refreshCycle(){
         }
       }
 
-      applyLive(m.id);
       if(!wasFinished && L.clock==="Encerrado"){
         addResult(m,L);
-        const card=document.getElementById("card-"+m.id); if(card) card.style.display="none";
       }
     }
 
     // jogos movimentados detectados automaticamente (todas as ligas)
     if(rbLive){ DYNAMIC=buildDynamic(rbLive); renderDynGrid(); }
     renderEntries();
-    const anyCur=MATCHES.some(m=>{const x=live[m.id]; return x && x.clock!=="Encerrado";});
-    const curSec=document.getElementById("cur-sec"); if(curSec) curSec.style.display=anyCur?"block":"none";
     const now=new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",second:"2-digit"});
     document.getElementById("timestamp").textContent=`🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓`;
   }catch(err){
