@@ -28,7 +28,7 @@
   .podium{background:linear-gradient(135deg,#16233f,#121a2c);border:1px solid #2a3d66;border-radius:16px;padding:16px;position:relative;overflow:hidden}
   .podium .rank{position:absolute;top:10px;right:14px;font-size:34px;font-weight:900;color:#2a3d66}
   .podium h3{font-size:15px;margin-bottom:4px}
-  .podium .pick{font-size:20px;font-weight:800;color:var(--gold);margin:6px 0}
+  .podium .pick{font-size:17px;font-weight:800;color:var(--gold);margin:6px 0}
   .podium .why{color:var(--mut);font-size:12.5px;line-height:1.5}
   .conf{color:var(--gold);letter-spacing:2px;font-size:13px}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
@@ -51,17 +51,27 @@
   .bar .h, .bar .a{height:100%}
   .picks{margin-top:2px}
   .pick{display:flex;gap:10px;align-items:flex-start;background:var(--card2);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:10px;padding:10px 12px;margin-top:8px}
-  .pick.under{border-left-color:var(--red)}
   .pick .ic{font-size:17px;line-height:1.3}
   .pick .line{font-weight:800;font-size:13.5px}
   .pick .line small{color:var(--mut);font-weight:600;font-size:11px;display:block;margin-top:2px}
   .pick .odds{color:var(--gold);font-weight:800;font-size:12px;margin-left:auto;white-space:nowrap}
   .pick .why{color:var(--mut);font-size:12px;margin-top:3px;line-height:1.45}
   .tag{display:inline-block;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;margin-right:6px;vertical-align:1px}
-  .livedot{color:var(--green);animation:pulse 1.4s infinite;margin-right:5px;font-size:9px}
   .tag.g{background:#0e2416;color:#4ade80}
   .tag.c{background:#152036;color:#7ea6ff}
   .tag.o{background:#241a0e;color:#fbbf24}
+  .livedot{color:var(--green);animation:pulse 1.4s infinite;margin-right:5px;font-size:9px}
+  .rbline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:linear-gradient(90deg,#171226,#121a2c);border:1px solid #2d2350;border-radius:10px;padding:9px 12px;font-size:12.5px;margin-top:10px}
+  .rbline .rbtag{background:#241a3d;color:#b39dff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;white-space:nowrap}
+  .rbline b{color:#c9b8ff}
+  .rbline .rbprob{margin-left:auto;font-weight:800;color:var(--gold);white-space:nowrap}
+  .rbline .rbres{margin-left:8px;font-weight:800;font-size:11px}
+  .rbline .rbres.ok{color:#4ade80}
+  .rbline .rbres.no{color:#f87171}
+  .rbprob-bg{height:4px;border-radius:2px;background:#241a3d;overflow:hidden;margin-top:5px}
+  .rbprob-bg div{height:100%;background:var(--gold);border-radius:2px}
+  #results ul{list-style:none;display:flex;flex-wrap:wrap;gap:8px}
+  #results li{background:#101a2e;border:1px solid #22315a;border-radius:9px;padding:6px 11px;font-size:12px;color:var(--txt)}
   .note{background:#10182a;border:1px dashed #2a3d66;border-radius:12px;padding:12px 14px;color:var(--mut);font-size:12px;line-height:1.55;margin-top:26px}
   footer{color:#5b6885;font-size:11.5px;line-height:1.6;margin:26px 0 10px;text-align:center}
   .snap{color:var(--mut);font-size:11.5px;text-align:center;margin-top:8px}
@@ -73,7 +83,7 @@
 <header>
   <div>
     <div class="logo">⚡ Apostas <span>ao Vivo</span></div>
-    <div class="meta">Entradas de <b>gols</b> e <b>escanteios</b> — dados em tempo real (xG, chutes, momentum)</div>
+    <div class="meta">Entradas de <b>gols</b> e <b>escanteios</b> — sugestões 🤖 robobet.app + estatísticas em tempo real (xG, chutes, momentum)</div>
   </div>
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
     <span class="live-badge"><span class="live-dot"></span> AO VIVO</span>
@@ -82,48 +92,67 @@
   <div class="meta" id="timestamp" style="width:100%"></div>
 </header>
 
-<h2 class="sec">🏆 Top 3 do momento</h2>
+<h2 class="sec">🏆 Top 3 do momento <span id="topnote" class="meta" style="font-weight:400">— recalcula automaticamente a cada jogo encerrado</span></h2>
 <div class="hero" id="hero"></div>
 
 <h2 class="sec">📋 Entradas por jogo</h2>
-<div class="meta" style="margin:-4px 0 12px">🟢 Placar, posse, chutes, no alvo e escanteios atualizam automaticamente a cada 60s · xG/terço final ficam como snapshot inicial (fonte bloqueada no navegador)</div>
+<div class="meta" style="margin:-4px 0 12px">🟢 Placar, minuto, estatísticas (ESPN) e sugestões 🤖 do modelo robobet.app atualizam automaticamente a cada 60s · xG/terço final ficam como snapshot inicial</div>
 <div class="grid" id="grid"></div>
 
+<h2 class="sec" id="results-head" style="display:none">🏁 Jogos encerrados hoje</h2>
+<div id="results" class="meta" style="margin:-4px 0 4px"><ul id="results-list"></ul></div>
+
 <div class="note">
-  ⚠️ <b>Como ler:</b> cada "entrada" mostra a linha sugerida, a confiança (★) e o porquê baseado nos números ao vivo. Odds são referência aproximada de mercado — sempre confira a cotação atual na sua casa. Estatísticas detalhadas (xG, escanteios) são um snapshot do momento; placares e minutos atualizam ao vivo.
+  ⚠️ <b>Como ler:</b> cada card mostra as entradas sugeridas (linha, confiança ★, porquê) + a <b>sugestão do modelo 🤖 robobet.app</b> com probabilidade e odd. Odds são referência de mercado — sempre confira a cotação atual na sua casa. O Top 3 é recalculado automaticamente sempre que um jogo termina.
 </div>
 
 <footer>
   Apostas envolvem risco e podem causar dependência. Jogue com responsabilidade — apenas maiores de 18 anos. Este site é apenas informativo/analítico e não garante resultados.<br>
-  Fonte de dados: APIs públicas de estatísticas esportivas (Sofascore/ESPN). Não afiliado ao robobet.app.
+  Fonte de dados: API pública do robobet.app (events/today), ESPN e Sofascore. Não afiliado ao robobet.app.
 </footer>
 <div class="snap" id="snap"></div>
 
 <script>
-const SNAPSHOT = "16/08/2026 ~15:35 (Brasília)";
+const SNAPSHOT = "16/08/2026 ~15:45 (Brasília)";
 const API = "https://site.api.espn.com/apis/site/v2/sports/soccer";
+const RB_API = "https://m.robobet.app/api/events/today";
+
+const MARKET_LABELS = {
+  corners_over_75:"Escanteios Over 7.5", corners_over_85:"Escanteios Over 8.5", corners_over_95:"Escanteios Over 9.5",
+  corners_under_75:"Escanteios Under 7.5",
+  goals_over_15:"Gols Over 1.5", goals_over_25:"Gols Over 2.5", goals_over_35:"Gols Over 3.5", goals_over_45:"Gols Over 4.5",
+  goals_under_15:"Gols Under 1.5", goals_under_25:"Gols Under 2.5", goals_under_35:"Gols Under 3.5",
+  double_chance_1x:"Dupla chance 1X", double_chance_12:"Dupla chance 12", double_chance_x2:"Dupla chance X2",
+  btts_yes:"Ambos marcam", btts_no:"Ambos não marcam",
+  winner_1:"Vitória do mandante", winner_x:"Empate", winner_2:"Vitória do visitante"
+};
 
 const MATCHES = [
   {
-    id:"mechelen", league:"Pro League — Bélgica", home:"Mechelen", away:"Standard Liège", hs:1, as:3, clock:"2º tempo",
+    id:"mechelen", league:"Pro League — Bélgica", home:"Mechelen", away:"Standard Liège", hs:3, as:3, clock:"Encerrado",
+    rbHome:"KV Mechelen", rbAway:"Standard Liege",
+    rb:{abbr:"+7.5", prob:78.69, odd:1.29, market:"corners_over_75", isCorrect:false},
     stats:{ poss:[52,48], shots:[10,13], sot:[1,7], xg:[0.78,1.03], corners:[4,2], fthird:[37,51], xgot:[0.74,2.77] },
     picks:[
-      {type:"g", line:"Over 4.5 gols", conf:4, odds:"~2.10", why:"4 gols aos 70' e o Standard criando em volume (7 chutes no alvo, xG no alvo 2.77)." },
-      {type:"c", line:"Over 8.5 escanteios", conf:4, odds:"~1.85", why:"6 escanteios + 51 entradas no terço final do Standard — pressão constante." },
-      {type:"o", line:"Standard vence", conf:5, odds:"~1.15", why:"Vantagem de 2 gols com 20 min restantes e total domínio de criação." }
+      {type:"g", line:"Over 4.5 gols", conf:4, odds:"~2.10", why:"Jogo terminou 3x3 — o Standard criou em volume (7 chutes no alvo) e o Mechelen reagiu no fim." },
+      {type:"c", line:"Over 8.5 escanteios", conf:4, odds:"~1.85", why:"6 escanteios até os 70' + 51 entradas no terço final do Standard." }
     ]
   },
   {
-    id:"burgos", league:"LaLiga 2 — Espanha", home:"Burgos", away:"Córdoba", hs:2, as:2, clock:"Intervalo",
+    id:"burgos", league:"LaLiga 2 — Espanha", home:"Burgos", away:"Córdoba", hs:2, as:2, clock:"2º tempo",
+    rbHome:"Burgos", rbAway:"Cordoba",
+    rb:{abbr:"+7.5", prob:77.87, odd:1.30, market:"corners_over_75"},
     stats:{ poss:[47,53], shots:[9,10], sot:[3,6], xg:null, corners:[1,3], fthird:null, xgot:null },
     picks:[
       {type:"g", line:"Over 4.5 gols", conf:4, odds:"~1.95", why:"4 gols no 1º tempo e Córdoba com 6 finalizações no alvo — jogo totalmente aberto." },
       {type:"g", line:"Over 1.5 gols no 2º tempo", conf:3, odds:"~1.90", why:"Ritmo de ~2 gols por tempo; goleiro do Burgos já fez 4 defesas." },
-      {type:"c", line:"Over 8.5 escanteios", conf:3, odds:"~1.75", why:"4 escanteios no 1º tempo e Córdoba atacando pelo lado direito com volume." }
+      {type:"c", line:"Over 8.5 escanteios", conf:3, odds:"~1.75", why:"4 escanteios no 1º tempo e Córdoba atacando com volume." }
     ]
   },
   {
-    id:"espanyol", league:"LaLiga — Espanha", home:"Espanyol", away:"Levante", hs:2, as:0, clock:"Intervalo",
+    id:"espanyol", league:"LaLiga — Espanha", home:"Espanyol", away:"Levante", hs:2, as:0, clock:"2º tempo",
+    rbHome:"Espanyol", rbAway:"Levante",
+    rb:{abbr:"+7.5", prob:80, odd:1.25, market:"corners_over_75"},
     stats:{ poss:[50,50], shots:[10,2], sot:[4,0], xg:[0.99,0.17], corners:[0,1], fthird:null, xgot:[2.18,0.0] },
     picks:[
       {type:"g", line:"Levante não marca (under 0.5 gols)", conf:4, odds:"~1.60", why:"Levante com 0 chutes no alvo e xG de 0.17 em 45 minutos." },
@@ -132,16 +161,19 @@ const MATCHES = [
     ]
   },
   {
-    id:"genoa", league:"Copa Itália — 64 avos", home:"Genoa", away:"Ascoli", hs:3, as:1, clock:"2º tempo",
-    stats:{ poss:[42,58], shots:[18,3], sot:[7,1], xg:null, corners:[7,2], fthird:null, xgot:null },
+    id:"genoa", league:"Copa Itália — 64 avos", home:"Genoa", away:"Ascoli", hs:4, as:1, clock:"Encerrado",
+    rbHome:"Genoa", rbAway:"Ascoli",
+    rb:{abbr:"1X", prob:86.88, odd:1.11, market:"double_chance_1x", isCorrect:true},
+    stats:{ poss:[42,58], shots:[20,4], sot:[8,1], xg:null, corners:[8,2], fthird:null, xgot:null },
     picks:[
-      {type:"c", line:"Over 8.5 escanteios", conf:5, odds:"~1.40", why:"Já são 9 escanteios aos 69' — Genoa finalizou 18 vezes." },
-      {type:"g", line:"Over 4.5 gols", conf:3, odds:"~2.20", why:"Genoa letal no contra-ataque (7 no alvo) e pode ampliar; Ascoli cria pouco." },
-      {type:"o", line:"Genoa vence", conf:5, odds:"~1.10", why:"3 x 1 com 20+ min restantes; Ascoli tem só 1 chute no alvo em 69 minutos." }
+      {type:"c", line:"Over 8.5 escanteios", conf:5, odds:"~1.40", why:"Já eram 9 escanteios aos 69' — Genoa finalizou 18 vezes." },
+      {type:"o", line:"Genoa vence", conf:5, odds:"~1.10", why:"Terminou 4x1 — Genoa letal no contra-ataque (7+ no alvo)." }
     ]
   },
   {
-    id:"arouca", league:"Liga Portugal Betclic", home:"Arouca", away:"Moreirense", hs:3, as:0, clock:"Intervalo",
+    id:"arouca", league:"Liga Portugal Betclic", home:"Arouca", away:"Moreirense", hs:3, as:0, clock:"2º tempo",
+    rbHome:"Arouca", rbAway:"Moreirense",
+    rb:{abbr:"1X", prob:78.05, odd:1.22, market:"double_chance_1x"},
     stats:{ poss:[59,41], shots:[9,2], sot:[4,1], xg:[1.34,0.29], corners:[3,1], fthird:null, xgot:[0.94,0.09] },
     picks:[
       {type:"o", line:"Arouca vence", conf:5, odds:"~1.12", why:"3 x 0 no intervalo, xG 1.34 x 0.29 e posse 59%." },
@@ -150,40 +182,36 @@ const MATCHES = [
     ]
   },
   {
-    id:"girona", league:"LaLiga — Espanha", home:"Girona", away:"Leganés", hs:0, as:0, clock:"Intervalo",
+    id:"girona", league:"LaLiga — Espanha", home:"Girona", away:"Leganés", hs:0, as:1, clock:"2º tempo",
+    rbHome:"Girona", rbAway:"Leganes",
+    rb:{abbr:"1X", prob:84.83, odd:1.13, market:"double_chance_1x"},
     stats:{ poss:[66,34], shots:[7,0], sot:[1,0], xg:null, corners:[1,0], fthird:null, xgot:null },
     picks:[
-      {type:"g", line:"Girona marca no jogo (over 0.5)", conf:4, odds:"~1.45", why:"66% de posse, 7 x 0 em chutes — o Leganés não saiu do campo de defesa." },
-      {type:"g", line:"Over 0.5 gols no 2º tempo", conf:4, odds:"~1.35", why:"Pressão total do Girona; questão de tempo para o gol." },
-      {type:"c", line:"Under 7.5 escanteios", conf:3, odds:"~1.60", why:"Só 1 escanteio no 1º tempo — Leganés não ataca, corners virão só do Girona." }
+      {type:"g", line:"Girona marca no jogo (over 0.5)", conf:4, odds:"~1.45", why:"66% de posse, 7 x 0 em chutes no 1º tempo — mas o Leganés abriu o placar." },
+      {type:"g", line:"Over 0.5 gols no 2º tempo", conf:4, odds:"~1.35", why:"Pressão total do Girona; questão de tempo para o empate." },
+      {type:"c", line:"Under 7.5 escanteios", conf:3, odds:"~1.60", why:"Só 1 escanteio no 1º tempo — corners virão só do Girona." }
     ]
   },
   {
-    id:"rapid", league:"Bundesliga — Áustria", home:"Rapid Viena", away:"Grazer AK", hs:5, as:0, clock:"Intervalo",
+    id:"rapid", league:"Bundesliga — Áustria", home:"Rapid Viena", away:"Grazer AK", hs:7, as:0, clock:"2º tempo",
+    rbHome:"Rapid Vienna", rbAway:"Grazer AK",
+    rb:{abbr:"1X", prob:83.75, odd:1.14, market:"double_chance_1x"},
     stats:{ poss:null, shots:null, sot:null, xg:null, corners:null, fthird:null, xgot:null },
     picks:[
-      {type:"g", line:"Over 5.5 gols", conf:3, odds:"~1.90", why:"5 gols só no 1º tempo. Risco: Rapid pode desacelerar — aposte com cautela." },
+      {type:"g", line:"Over 5.5 gols", conf:3, odds:"~1.90", why:"5 gols só no 1º tempo — agora 7x0. Cuidado com desaceleração." },
       {type:"o", line:"Rapid vence", conf:5, odds:"~1.05", why:"Goleada em andamento, jogo decidido." }
     ]
   },
   {
-    id:"nublense", league:"Campeonato Chileno", home:"Ñublense", away:"Unión La Calera", hs:2, as:0, clock:"2º tempo",
+    id:"nublense", league:"Campeonato Chileno", home:"Ñublense", away:"Unión La Calera", hs:2, as:1, clock:"Encerrado",
+    rbHome:"Nublense", rbAway:"Union La Calera",
+    rb:{abbr:"+7.5", prob:83.58, odd:1.22, market:"corners_over_75", isCorrect:true},
     stats:{ poss:null, shots:null, sot:null, xg:null, corners:null, fthird:null, xgot:null },
     picks:[
-      {type:"o", line:"Ñublense vence", conf:4, odds:"~1.20", why:"2 x 0 aos 73' — mando de campo e placar confortável." }
+      {type:"o", line:"Ñublense vence", conf:4, odds:"~1.20", why:"Terminou 2x1 — mando de campo e placar confortável." }
     ]
   }
 ];
-
-const TOP3 = [
-  {rank:"1", title:"Mechelen x Standard", pick:"Over 4.5 gols", conf:4, why:"4 gols já marcados e Standard criando 7 chutes no alvo aos 70'."},
-  {rank:"2", title:"Genoa x Ascoli", pick:"Over 8.5 escanteios", conf:5, why:"9 escanteios aos 69' com o Genoa finalizando 18 vezes."},
-  {rank:"3", title:"Espanyol x Levante", pick:"Levante não marca", conf:4, why:"0 chutes no alvo e xG de 0.17 do Levante no 1º tempo."}
-];
-
-function stars(n){ let s=""; for(let i=0;i<5;i++) s+= i<n ? "★" : "☆"; return s; }
-function pct(a,b){ const ta=parseFloat(a), tb=parseFloat(b); const t=ta+tb; return t===0 ? 50 : Math.round(ta/t*100); }
-function norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 
 // chaves de estatística que a ESPN atualiza ao vivo por jogo
 const LIVE_KEYS = {
@@ -192,14 +220,71 @@ const LIVE_KEYS = {
   sot:    {es:"shotsOnTarget", fmt:v=>String(v)},
   corners:{es:"wonCorners",    fmt:v=>String(v)}
 };
-const live = {}; // id -> {hs,as,clock,stats:{...}}
+const live = {}; // id -> {hs,as,clock,stats:{...}, rb:{...}}
+const RESULTS = [];
 
+function stars(n){ let s=""; for(let i=0;i<5;i++) s+= i<n ? "★" : "☆"; return s; }
+function pct(a,b){ const ta=parseFloat(a), tb=parseFloat(b); const t=ta+tb; return t===0 ? 50 : Math.round(ta/t*100); }
+function norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+function rbLabel(mkt){ return MARKET_LABELS[mkt]||mkt; }
+
+// ---------- Top 3 dinâmico ----------
+function isFinished(m){ const L=live[m.id]; return L && L.clock==="Encerrado"; }
+function rankScore(m){
+  const r=m.rb||{}; const conf=(m.picks||[]).reduce((a,p)=>Math.max(a,p.conf),0);
+  return (parseFloat(r.prob)||0) + conf*3;
+}
+function confFromProb(p){ if(p>=85) return 5; if(p>=80) return 4; if(p>=75) return 3; if(p>=70) return 2; return 1; }
+function computeTop3(){
+  const pool=MATCHES.filter(m=>!isFinished(m));
+  if(!pool.length) return [];
+  return pool.slice().sort((a,b)=>rankScore(b)-rankScore(a)).slice(0,3);
+}
+function renderHero(){
+  const hero=document.getElementById("hero");
+  const top=computeTop3();
+  if(!top.length){
+    hero.innerHTML=`<div class="podium" style="grid-column:1/-1"><h3>Sem jogos ao vivo no momento</h3><div class="why">Quando um jogo terminar, o Top 3 é recalculado automaticamente com as próximas melhores entradas.</div></div>`;
+    return;
+  }
+  hero.innerHTML=top.map((m,i)=>{
+    const r=m.rb||{};
+    const pick = r.market ? `${rbLabel(r.market)} ${r.abbr||""} · ${parseFloat(r.prob).toFixed(0)}% · @${r.odd}` : (m.picks[0]?m.picks[0].line:"—");
+    const conf = r.prob ? confFromProb(parseFloat(r.prob)) : (m.picks.reduce((a,p)=>Math.max(a,p.conf),0));
+    const why = r.market
+      ? `🤖 robobet.app dá ${parseFloat(r.prob).toFixed(0)}% para ${rbLabel(r.market).toLowerCase()} (${r.abbr}). ${m.picks[0]?m.picks[0].why:""}`
+      : (m.picks[0]?m.picks[0].why:"");
+    return `<div class="podium">
+      <div class="rank">${i+1}</div>
+      <h3>${m.home} x ${m.away}</h3>
+      <div class="pick">${pick}</div>
+      <div class="conf">${stars(conf)}</div>
+      <div class="why">${why}</div>
+    </div>`;
+  }).join("");
+}
+
+// ---------- Renderização dos cards ----------
 function statRow(m, key, label, h, a){
   const hp=pct(h,a), ap=100-hp;
   const hw=parseFloat(h)>parseFloat(a), aw=parseFloat(a)>parseFloat(h);
   return `<div class="statbar" id="row-${m.id}-${key}">
     <b id="v-${m.id}-${key}-h" style="text-align:left">${h}</b><span style="text-align:center">${label}</span><b id="v-${m.id}-${key}-a" style="text-align:right">${a}</b>
     <div class="bar" id="bar-${m.id}-${key}" style="grid-column:1/-1"><div class="h ${hw?'win':''}" style="width:${hp}%"></div><div class="a ${aw?'win':''}" style="width:${ap}%"></div></div>
+  </div>`;
+}
+
+function rbLine(m){
+  const r=m.rb||{};
+  if(!r.market) return "";
+  const res = r.isCorrect==null ? "" : (r.isCorrect ? `<span class="rbres ok">✓ acertou</span>` : `<span class="rbres no">✗ errou</span>`);
+  const p = parseFloat(r.prob);
+  return `<div class="rbline" id="rb-${m.id}">
+    <span class="rbtag">🤖 ROBOBET</span>
+    <b>${rbLabel(r.market)} ${r.abbr||""}</b>
+    <span class="rbprob">${Number.isFinite(p)?p.toFixed(0)+"%":"—"} · @${r.odd||"—"}</span>
+    ${res}
+    ${Number.isFinite(p)?`<div class="rbprob-bg" style="width:100%"><div style="width:${Math.max(4,p)}%"></div></div>`:""}
   </div>`;
 }
 
@@ -235,23 +320,25 @@ function renderMatch(m){
       <div class="tname tright">${m.away}</div>
     </div>
     ${rows}
+    ${rbLine(m)}
     <div class="picks">${picksHtml}</div>
   </div>`;
 }
 
 function render(){
-  document.getElementById("hero").innerHTML = TOP3.map(p=>`
-    <div class="podium">
-      <div class="rank">${p.rank}</div>
-      <h3>${p.title}</h3>
-      <div class="pick">${p.pick}</div>
-      <div class="conf">${stars(p.conf)}</div>
-      <div class="why">${p.why}</div>
-    </div>`).join("");
+  MATCHES.forEach(m=>{
+    if(!live[m.id]) live[m.id]={clock:m.clock};
+    if(m.clock==="Encerrado" && m.rb && m.rb.isCorrect!=null && !RESULTS.some(r=>r.title.includes(m.home))){
+      RESULTS.push({title:`${m.home} ${m.hs} x ${m.as} ${m.away}`, line:`${rbLabel(m.rb.market)} ${m.rb.abbr||""}`, res: m.rb.isCorrect? "🤖 acertou ✓":"🤖 errou ✗"});
+    }
+  });
   document.getElementById("grid").innerHTML = MATCHES.map(renderMatch).join("");
   document.getElementById("snap").textContent = "📸 Snapshot de estatísticas: " + SNAPSHOT;
+  renderHero();
+  renderResults();
 }
 
+// ---------- Atualização ao vivo ----------
 const LABELS={poss:"Posse",shots:"Chutes",sot:"No alvo",corners:"Escanteios"};
 
 function ensureRow(id,key,val){
@@ -267,6 +354,15 @@ function applyLive(id){
   const el=document.getElementById("score-"+id);
   if(el && L.hs!=null) el.innerHTML=L.hs+' <span style="color:var(--mut);font-size:18px">x</span> '+L.as;
   const cl=document.getElementById("clock-"+id); if(cl && L.clock) cl.textContent=L.clock;
+  if(L.rb){
+    const rb=document.getElementById("rb-"+id);
+    if(rb){
+      const r=L.rb;
+      const res = r.isCorrect==null ? "" : (r.isCorrect ? `<span class="rbres ok">✓ acertou</span>` : `<span class="rbres no">✗ errou</span>`);
+      const p=parseFloat(r.prob);
+      rb.innerHTML=`<span class="rbtag">🤖 ROBOBET</span><b>${rbLabel(r.market)} ${r.abbr||""}</b><span class="rbprob">${Number.isFinite(p)?p.toFixed(0)+"%":"—"} · @${r.odd||"—"}</span>${res}${Number.isFinite(p)?`<div class="rbprob-bg" style="width:100%"><div style="width:${Math.max(4,p)}%"></div></div>`:""}`;
+    }
+  }
   if(!L.stats) return;
   const dot=document.getElementById("dot-"+id); if(dot) dot.style.display="inline";
   for(const key of Object.keys(LIVE_KEYS)){
@@ -285,12 +381,30 @@ function applyLive(id){
 function clockText(shortDetail){
   if(!shortDetail) return "";
   const d=shortDetail.toUpperCase();
-  if(d.includes("HT")||d.includes("INTERVAL")) return "Intervalo";
+  if(d.includes("HT")||d.includes("INTERVAL")||d==="FT") return d==="FT"?"Encerrado":"Intervalo";
   const m=d.match(/(\d+)'/);
   if(m){ const min=parseInt(m[1]); return min>=45 ? "2º tempo "+min+"'" : min+"'"; }
   return shortDetail;
 }
 
+// ---------- Resultados ----------
+function addResult(m,L){
+  const r=L.rb||m.rb||{};
+  const res = r.isCorrect==null ? "resultado pendente" : (r.isCorrect ? "🤖 acertou ✓" : "🤖 errou ✗");
+  RESULTS.push({ title:`${m.home} ${L.hs} x ${L.as} ${m.away}`, line:`${rbLabel(r.market)} ${r.abbr||""}`, res });
+  renderResults();
+}
+function renderResults(){
+  const head=document.getElementById("results-head");
+  const box=document.getElementById("results");
+  const list=document.getElementById("results-list");
+  if(!RESULTS.length){ if(head) head.style.display="none"; if(box) box.style.display="none"; return; }
+  if(head) head.style.display="flex";
+  if(box) box.style.display="block";
+  if(list) list.innerHTML=RESULTS.map(r=>`<li>🏁 <b>${r.title}</b> — ${r.line} · <span style="color:${r.res.includes('acertou')?'#4ade80':'#f87171'}">${r.res}</span></li>`).join("");
+}
+
+// ---------- Fontes de dados ----------
 function eventMatches(ev, m){
   const names=(ev.competitions&&ev.competitions[0]&&ev.competitions[0].competitors||[]).map(t=>norm((t.team||{}).displayName||""));
   if(names.length<2) return false;
@@ -298,53 +412,87 @@ function eventMatches(ev, m){
   return names.some(n=>n.includes(hw)) && names.some(n=>n.includes(aw));
 }
 
+async function fetchRoboBet(){
+  try{
+    const r = await fetch(RB_API,{headers:{Accept:"application/json"}});
+    if(!r.ok) return null;
+    const data = await r.json();
+    const idx={};
+    for(const L of (data.leagues||[])) for(const m of (L.matches||[])) idx[norm(m.home||"")+"|"+norm(m.away||"")]=m;
+    return idx;
+  }catch(e){ return null; }
+}
+
 async function refreshCycle(){
   const btn=document.getElementById("refresh");
   btn.disabled=true;
+  let synced=0, rbNote="";
   try{
+    const rbIdx = await fetchRoboBet();
     const r = await fetch(API+"/all/scoreboard?limit=200");
     if(!r.ok) throw new Error("HTTP "+r.status);
     const data = await r.json();
     const events = data.events||[];
-    let synced=0;
     for(const m of MATCHES){
       const ev = events.find(e=>eventMatches(e,m));
-      if(!ev){ live[m.id]={...live[m.id], clock:"Encerrado"}; applyLive(m.id); continue; }
-      const st=ev.status&&ev.status.type||{};
-      const comp=(ev.competitions||[{}])[0];
-      const home=(comp.competitors||[]).find(t=>t.homeAway==="home");
-      const away=(comp.competitors||[]).find(t=>t.homeAway==="away");
       const L=live[m.id]={...live[m.id]};
-      L.hs=home?home.score:null; L.as=away?away.score:null;
-      L.clock = st.state==="post" ? "Encerrado" : clockText(st.shortDetail);
-      applyLive(m.id); synced++;
-      if(st.state==="in"||st.state==="live"){
-        try{
-          const s = await fetch(API+"/esp.1/summary?event="+ev.id);
-          if(s.ok){
-            const sd = await s.json();
-            const bsTeams = (sd.boxscore&&sd.boxscore.teams)||[];
-            if(bsTeams.length>=2){
-              const hName=norm((home&&home.team&&home.team.displayName)||"").slice(0,7);
-              const aName=norm((away&&away.team&&away.team.displayName)||"").slice(0,7);
-              let ht=bsTeams.find(t=>hName && norm((t.team||{}).displayName).includes(hName));
-              let at=bsTeams.find(t=>aName && norm((t.team||{}).displayName).includes(aName));
-              if(!ht) ht=bsTeams[0]; if(!at) at=bsTeams[1];
-              const stats={};
-              for(const key of Object.keys(LIVE_KEYS)){
-                const cfg=LIVE_KEYS[key];
-                const hv=(ht.statistics||[]).find(x=>x.name===cfg.es);
-                const av=(at.statistics||[]).find(x=>x.name===cfg.es);
-                if(hv&&av&&hv.displayValue!=null&&av.displayValue!=null) stats[key]=[hv.displayValue,av.displayValue];
+      const wasFinished = L.clock==="Encerrado";
+
+      if(ev){
+        const st=ev.status&&ev.status.type||{};
+        const comp=(ev.competitions||[{}])[0];
+        const home=(comp.competitors||[]).find(t=>t.homeAway==="home");
+        const away=(comp.competitors||[]).find(t=>t.homeAway==="away");
+        L.hs=home?home.score:null; L.as=away?away.score:null;
+        L.clock = st.state==="post" ? "Encerrado" : clockText(st.shortDetail);
+        synced++;
+        if(st.state==="in"||st.state==="live"){
+          try{
+            const s = await fetch(API+"/esp.1/summary?event="+ev.id);
+            if(s.ok){
+              const sd = await s.json();
+              const bsTeams = (sd.boxscore&&sd.boxscore.teams)||[];
+              if(bsTeams.length>=2){
+                const hName=norm((home&&home.team&&home.team.displayName)||"").slice(0,7);
+                const aName=norm((away&&away.team&&away.team.displayName)||"").slice(0,7);
+                let ht=bsTeams.find(t=>hName && norm((t.team||{}).displayName).includes(hName));
+                let at=bsTeams.find(t=>aName && norm((t.team||{}).displayName).includes(aName));
+                if(!ht) ht=bsTeams[0]; if(!at) at=bsTeams[1];
+                const stats={};
+                for(const key of Object.keys(LIVE_KEYS)){
+                  const cfg=LIVE_KEYS[key];
+                  const hv=(ht.statistics||[]).find(x=>x.name===cfg.es);
+                  const av=(at.statistics||[]).find(x=>x.name===cfg.es);
+                  if(hv&&av&&hv.displayValue!=null&&av.displayValue!=null) stats[key]=[hv.displayValue,av.displayValue];
+                }
+                if(Object.keys(stats).length){ L.stats=stats; }
               }
-              if(Object.keys(stats).length){ L.stats=stats; applyLive(m.id); }
             }
-          }
-        }catch(e){ /* stats indisponíveis: mantém snapshot */ }
+          }catch(e){}
+        }
       }
+
+      // robobet.app: placar, minuto e sugestão do modelo
+      if(rbIdx){
+        const rbm=rbIdx[norm(m.rbHome)+"|"+norm(m.rbAway)];
+        if(rbm){
+          L.hs=rbm.scoreHome; L.as=rbm.scoreAway;
+          const st=(rbm.status||"").toLowerCase();
+          L.clock = (st==="finished" || rbm.time==="FT") ? "Encerrado" : (rbm.time||L.clock);
+          if(rbm.best_suggestion){
+            const b=rbm.best_suggestion;
+            L.rb={abbr:b.abbreviation, prob:b.probability, odd:b.odd, market:b.market_type, isCorrect:b.is_correct};
+          }
+          rbNote="🤖 robobet ok";
+        }
+      }
+
+      applyLive(m.id);
+      if(!wasFinished && L.clock==="Encerrado"){ addResult(m,L); }
     }
+    renderHero();
     const now=new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    document.getElementById("timestamp").textContent="🟢 Auto-atualização a cada 60s — "+now+" · "+synced+" jogos sincronizados ✓";
+    document.getElementById("timestamp").textContent=`🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓ ${rbNote}`;
   }catch(err){
     document.getElementById("timestamp").textContent="⚠️ Falha na atualização ("+err.message+") — exibindo último estado. Próxima tentativa em 60s.";
   }
