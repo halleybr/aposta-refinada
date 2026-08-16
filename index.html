@@ -276,15 +276,16 @@ function busyInfoOf(st, rb, hs, as){
 }
 function scoreFrom(rb, hs, as, st){
   const b=busyInfoOf(st, rb, hs, as);
-  return b.shots + b.sot*2 + b.corners*2.5 + b.xg*6
+  // movimentação ao vivo pesa muito: chutes, no alvo, escanteios, xG
+  return b.shots*1.2 + b.sot*3 + b.corners*3 + b.xg*10
        + (Number.isFinite(b.expC)? (b.expC-5)*4 : 0)
        + (Number.isFinite(b.o15)? b.o15*0.5 : 0)
-       + (Number.isFinite(b.o25)? b.o25*0.6 : 0)
+       + (Number.isFinite(b.o25)? b.o25*0.7 : 0)
        + b.goals*3
-       + (b.fire? 40 : 0)
-       + (b.ball? 22 : 0)
-       + (b.scored? 12 : 0)
-       + (Number.isFinite(b.xgpre)? b.xgpre*8 : 0);
+       + (b.fire? 45 : 0)
+       + (b.ball? 25 : 0)
+       + (b.scored? 15 : 0)
+       + (Number.isFinite(b.xgpre)? b.xgpre*6 : 0);
 }
 function fireLevelFrom(st, rb, hs, as){
   const b=busyInfoOf(st, rb, hs, as);
@@ -296,7 +297,7 @@ function fireLevelFrom(st, rb, hs, as){
   if(b.goals>=3) n++;
   return n? "🔥".repeat(Math.min(n,3)) : "";
 }
-function rankOfDyn(d){ return scoreFrom(d.rb||{}, d.hs, d.as, {}) + (d.major? 12 : 0); }
+function rankOfDyn(d){ return scoreFrom(d.rb||{}, d.hs, d.as, d.stats||{}) + (d.major? 12 : 0); }
 function computeEntries(){
   // lista 100% ao vivo: só jogos confirmados ao vivo pela fonte em tempo real
   const now=Date.now();
@@ -629,6 +630,9 @@ async function refreshCycle(){
       if(s.hs!=null) d.hs=s.hs;
       if(s.as!=null) d.as=s.as;
     }
+    // reordena com as estatísticas ao vivo (xG, chutes, escanteios) em mãos
+    DYNAMIC.sort((a,b)=>rankOfDyn(b)-rankOfDyn(a));
+    DYNAMIC=DYNAMIC.slice(0,12);
     renderDynGrid();
     renderLiveTable();
     renderEntries();
