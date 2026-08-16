@@ -321,7 +321,7 @@ function renderEntries(){
       <div class="rk">${i+1}</div>
       <div>
         <div class="mt">${m.home} ${scr} ${m.away} <span class="clock">${clock}</span></div>
-        <div class="ml">${m.league}${detail.length?` · ${detail.join(" · ")}`:""}${momen.length?` · <b style="color:#7ddb95">${momen.join(" · ")}</b>`:""}</div>
+        <div class="ml">${detail.length? detail.join(" · ") : ""}${momen.length?` · <b style="color:#7ddb95">${momen.join(" · ")}</b>`:""}</div>
       </div>
       <div class="opp">${opps.join("<br>")}</div>
     </div>`;
