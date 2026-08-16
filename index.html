@@ -31,6 +31,16 @@
   .podium .pick{font-size:17px;font-weight:800;color:var(--gold);margin:6px 0}
   .podium .why{color:var(--mut);font-size:12.5px;line-height:1.5}
   .conf{color:var(--gold);letter-spacing:2px;font-size:13px}
+  .livetable{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:12.5px;margin-bottom:10px}
+  .livetable th{background:#16203a;color:var(--mut);text-align:left;padding:9px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+  .livetable td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:middle}
+  .livetable tr:hover td{background:#141d33}
+  .lt-game{font-weight:800;white-space:nowrap}
+  .lt-clock{background:#1c2842;color:#9fb3dd;padding:2px 7px;border-radius:6px;font-size:10.5px;margin-left:6px}
+  .lt-pick{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:4px 9px;margin:2px 4px 2px 0;font-weight:700;font-size:12px;white-space:nowrap}
+  .lt-pick .p{color:var(--gold);font-weight:800}
+  .lt-pick.g{border-left:3px solid var(--green)}
+  .lt-pick.c{border-left:3px solid var(--blue)}
   .entrylist{display:flex;flex-direction:column;gap:8px}
   .entry{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:12px;padding:12px 14px}
   .entry .rk{font-size:19px;font-weight:900;color:#2a3d66;width:26px}
@@ -107,6 +117,10 @@
 </header>
 
 <h2 class="sec">🎯 Melhores entradas AO VIVO <span class="meta" style="font-weight:400">— oportunidades de gols e escanteios acontecendo agora · só jogos ao vivo · atualiza a cada 60s</span></h2>
+<table class="livetable" id="livetable">
+  <thead><tr><th>#</th><th>Jogo</th><th>Placar</th><th>Entradas sugeridas</th></tr></thead>
+  <tbody id="livetable-body"></tbody>
+</table>
 <div class="entrylist" id="entries"></div>
 
 <h2 class="sec" id="results-head" style="display:none">🏁 Jogos encerrados hoje</h2>
@@ -284,6 +298,38 @@ function computeEntries(){
   if(!pool.length) return [];
   return pool.slice(0,10);
 }
+function renderLiveTable(){
+  const tb=document.getElementById("livetable-body");
+  const tbl=document.getElementById("livetable");
+  if(!tb||!tbl) return;
+  const list=computeEntries();
+  if(!list.length){ tbl.style.display="none"; return; }
+  tbl.style.display="";
+  tb.innerHTML=list.map((m,i)=>{
+    const hs=m.hs, as=m.as, rb=m.rb||{}, st=m.stats||{};
+    const b=busyInfoOf(st, rb, hs, as);
+    const o15=b.o15, o25=b.o25, expC=b.expC, corners=b.corners;
+    const picks=[];
+    // entrada de gol: Over 1.5/2.5 com prob
+    if(Number.isFinite(o15) && o15>=60) picks.push({cls:"g", txt:`⚽ Over 1.5 gol`, p:`${o15.toFixed(0)}%`});
+    if(Number.isFinite(o25) && o25>=40) picks.push({cls:"g", txt:`⚽ Over 2.5 gols`, p:`${o25.toFixed(0)}%`});
+    // entrada de escanteio: linha acima da expectativa do modelo
+    if(Number.isFinite(expC) && expC>=7.5){
+      const line = expC>=9.4 ? "8.5" : "7.5";
+      const nowC = b.corners>0? ` (${corners} já)`:"";
+      picks.push({cls:"c", txt:`🥅 Over ${line} esc`, p:`~${expC.toFixed(1)}${nowC}`});
+    }
+    const scr=(hs!=null&&as!=null)? `${hs} x ${as}`:"";
+    const picksHtml=picks.map(p=>`<span class="lt-pick ${p.cls}">${p.txt} <span class="p">${p.p}</span></span>`).join("");
+    return `<tr>
+      <td style="color:var(--mut);font-weight:800">${i+1}</td>
+      <td class="lt-game">${m.home} x ${m.away}</td>
+      <td>${scr}<span class="lt-clock">${m.clock}</span></td>
+      <td>${picksHtml||`<span style="color:var(--mut)">pouca expectativa</span>`}</td>
+    </tr>`;
+  }).join("");
+}
+
 function renderEntries(){
   const el=document.getElementById("entries");
   if(!el) return;
@@ -336,6 +382,7 @@ function render(){
     }
   });
   document.getElementById("snap").textContent = "📸 Snapshot de estatísticas: " + SNAPSHOT;
+  renderLiveTable();
   renderEntries();
   renderResults();
 }
@@ -558,6 +605,7 @@ async function refreshCycle(){
       if(s) d.stats=s;
     }
     renderDynGrid();
+    renderLiveTable();
     renderEntries();
     const now=new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",second:"2-digit"});
     document.getElementById("timestamp").textContent=`🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓`;
