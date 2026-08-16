@@ -294,7 +294,8 @@ function fireLevelFrom(st, rb, hs, as){
 function rankOfDyn(d){ return scoreFrom(d.rb||{}, d.hs, d.as, {}) + (d.major? 12 : 0); }
 function computeEntries(){
   // lista 100% ao vivo: só jogos confirmados ao vivo pela fonte em tempo real
-  const pool=(DYNAMIC||[]).filter(d=>d.clock!=="Encerrado");
+  const now=Date.now();
+  const pool=(DYNAMIC||[]).filter(d=>d.clock!=="Encerrado" && (now-(d.seenAt||0))<120000);
   if(!pool.length) return [];
   return pool.slice(0,10);
 }
@@ -470,16 +471,17 @@ async function fetchLiveStats(id){
     const r = await fetch("https://m."+"robo"+"bet.app/api/events/"+id+"/live-stats",{headers:{Accept:"application/json"}});
     if(!r.ok) return null;
     const d = await r.json();
+    const ev=d.event||{};
     const ft=(d.stats&&d.stats.ft)||{};
     const h=ft.home||{}, a=ft.away||{};
-    const out={};
+    const out={finished: (ev.status||"")!=="live", clock: ev.time||null, hs: ev.scoreHome, as: ev.scoreAway};
     if(h.corners!=null && a.corners!=null) out.corners=[h.corners,a.corners];
     if(h.xg!=null && a.xg!=null) out.xg=[h.xg,a.xg];
     if(h.on_target!=null && a.on_target!=null) out.sot=[h.on_target,a.on_target];
     if(h.off_target!=null && a.off_target!=null) out.shots=[(h.on_target||0)+(h.off_target||0),(a.on_target||0)+(a.off_target||0)];
     if(h.attacks!=null && a.attacks!=null) out.attacks=[h.attacks,a.attacks];
     if(h.dangerous_attacks!=null && a.dangerous_attacks!=null) out.danger=[h.dangerous_attacks,a.dangerous_attacks];
-    return Object.keys(out).length? out : null;
+    return out;
   }catch(e){ return null; }
 }
 
@@ -494,7 +496,8 @@ function buildDynamic(rbLive){
       league:item.league, major:item.isMajor,
       home, away, hs:item.m.scoreHome, as:item.m.scoreAway,
       clock: (item.m.time||""),
-      rb:rbFromModel(item.m), stats:{}, picks:[]
+      rb:rbFromModel(item.m), stats:{}, picks:[],
+      seenAt: Date.now()
     });
   }
   out.sort((a,b)=>rankOfDyn(b)-rankOfDyn(a));
@@ -524,7 +527,8 @@ function renderDynGrid(){
   const sec=document.getElementById("dyn-sec");
   const grid=document.getElementById("dyn-grid");
   if(!sec||!grid) return;
-  const list=(DYNAMIC||[]).filter(d=>d.clock!=="Encerrado");
+  const now=Date.now();
+  const list=(DYNAMIC||[]).filter(d=>d.clock!=="Encerrado" && (now-(d.seenAt||0))<120000);
   sec.style.display = list.length? "block" : "none";
   grid.innerHTML = list.map(renderDynCard).join("");
 }
@@ -602,7 +606,13 @@ async function refreshCycle(){
     // estatísticas ao vivo (escanteios, xG, chutes) direto da fonte, por jogo da lista
     for(const d of (DYNAMIC||[])){
       const s=await fetchLiveStats(d.id);
-      if(s) d.stats=s;
+      if(!s) continue;
+      if(s.finished){ d.clock="Encerrado"; continue; }
+      d.stats=s;
+      d.seenAt=Date.now();
+      if(s.clock) d.clock=s.clock;
+      if(s.hs!=null) d.hs=s.hs;
+      if(s.as!=null) d.as=s.as;
     }
     renderDynGrid();
     renderLiveTable();
