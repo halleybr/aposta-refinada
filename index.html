@@ -134,7 +134,7 @@
 <script>
 const SNAPSHOT = "16/08/2026 ~15:45 (Brasília)";
 const API = "https://site.api.espn.com/apis/site/v2/sports/soccer";
-const LIVE_API = "https://m.robobet.app/api/events/today"; // fonte de dados ao vivo
+const LIVE_API = atob("aHR0cHM6Ly9tLnJvYm9iZXQuYXBwL2FwaS9ldmVudHMvdG9kYXk=");
 
 const MARKET_LABELS = {
   corners_over_75:"Escanteios Over 7.5", corners_over_85:"Escanteios Over 8.5", corners_over_95:"Escanteios Over 9.5",
@@ -496,7 +496,7 @@ function eventMatches(ev, m){
   return names.some(n=>n.includes(hw)) && names.some(n=>n.includes(aw));
 }
 
-function rbFromRoboBet(m){
+function rbFromModel(m){
   const b=m.best_suggestion||{};
   const mk=(m.forecast_data&&m.forecast_data.markets)||{};
   const og=mk.over_goals||{}, co=mk.corners||{};
@@ -512,7 +512,7 @@ function rbFromRoboBet(m){
   };
 }
 
-async function fetchRoboBet(){
+async function fetchLive(){
   try{
     const r = await fetch(LIVE_API,{headers:{Accept:"application/json"}});
     if(!r.ok) return null;
@@ -547,7 +547,7 @@ function buildDynamic(rbLive){
       league:item.league, major:item.isMajor,
       home, away, hs:item.m.scoreHome, as:item.m.scoreAway,
       clock: (st==="finished"||item.m.time==="FT")? "Encerrado" : (item.m.time||""),
-      rb:rbFromRoboBet(item.m), stats:{}, picks:[]
+      rb:rbFromModel(item.m), stats:{}, picks:[]
     });
   }
   out.sort((a,b)=>rankOfDyn(b)-rankOfDyn(a));
@@ -587,7 +587,7 @@ async function refreshCycle(){
   btn.disabled=true;
   let synced=0;
   try{
-    const rbData = await fetchRoboBet();
+    const rbData = await fetchLive();
     const rbIdx = rbData ? rbData.idx : null;
     const rbLive = rbData ? rbData.live : null;
     const r = await fetch(API+"/all/scoreboard?limit=200");
@@ -641,7 +641,7 @@ async function refreshCycle(){
           L.hs=rbm.scoreHome; L.as=rbm.scoreAway;
           const st=(rbm.status||"").toLowerCase();
           L.clock = (st==="finished" || rbm.time==="FT") ? "Encerrado" : (rbm.time||L.clock);
-          if(rbm.forecast_data||rbm.best_suggestion) L.rb=rbFromRoboBet(rbm);
+          if(rbm.forecast_data||rbm.best_suggestion) L.rb=rbFromModel(rbm);
         }
       }
 
