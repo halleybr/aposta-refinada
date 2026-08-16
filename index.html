@@ -253,7 +253,7 @@ function busyInfoOf(st, rb, hs, as){
   const xgpre=parseFloat(rb.xgpre);
   const xg=(st.xg? parseFloat(st.xg[0])+parseFloat(st.xg[1]) : 0);
   const goals=(parseInt(hs)||0)+(parseInt(as)||0);
-  return {shots,sot,corners,expC,o05,o15,o25,xg,xgpre,goals,fire:!!rb.fire};
+  return {shots,sot,corners,expC,o05,o15,o25,xg,xgpre,goals,fire:!!rb.fire,ball:!!rb.ball,scored:!!rb.scored};
 }
 function scoreFrom(rb, hs, as, st){
   const b=busyInfoOf(st, rb, hs, as);
@@ -263,6 +263,8 @@ function scoreFrom(rb, hs, as, st){
        + (Number.isFinite(b.o25)? b.o25*0.6 : 0)
        + b.goals*3
        + (b.fire? 40 : 0)
+       + (b.ball? 22 : 0)
+       + (b.scored? 12 : 0)
        + (Number.isFinite(b.xgpre)? b.xgpre*8 : 0);
 }
 function fireLevelFrom(st, rb, hs, as){
@@ -275,21 +277,12 @@ function fireLevelFrom(st, rb, hs, as){
   if(b.goals>=3) n++;
   return n? "🔥".repeat(Math.min(n,3)) : "";
 }
-function isFinished(m){ const L=live[m.id]; return L && L.clock==="Encerrado"; }
-function rankOfMatch(m){
-  const L=live[m.id]||{};
-  return scoreFrom(L.rb||m.rb||{}, L.hs!=null?L.hs:m.hs, L.as!=null?L.as:m.as, L.stats||{}) + 12;
-}
 function rankOfDyn(d){ return scoreFrom(d.rb||{}, d.hs, d.as, {}) + (d.major? 12 : 0); }
 function computeEntries(){
-  const pool=[...MATCHES.filter(m=>!isFinished(m)).map(m=>({isCurated:true,m})),
-              ...(DYNAMIC||[]).filter(d=>d.clock!=="Encerrado").map(d=>({isCurated:false,m:d}))];
+  // lista 100% ao vivo: só jogos confirmados ao vivo pela fonte em tempo real
+  const pool=(DYNAMIC||[]).filter(d=>d.clock!=="Encerrado");
   if(!pool.length) return [];
-  return pool.sort((a,b)=>{
-    const sa=a.isCurated? rankOfMatch(a.m) : rankOfDyn(a.m);
-    const sb=b.isCurated? rankOfMatch(b.m) : rankOfDyn(b.m);
-    return sb-sa;
-  }).slice(0,10);
+  return pool.slice(0,10);
 }
 function renderEntries(){
   const el=document.getElementById("entries");
@@ -300,13 +293,8 @@ function renderEntries(){
     return;
   }
   el.innerHTML=list.map((x,i)=>{
-    const m=x.m, isCurated=x.isCurated;
-    const L=isCurated? (live[m.id]||{}) : m;
-    const hs=isCurated? (L.hs!=null?L.hs:m.hs):m.hs;
-    const as=isCurated? (L.as!=null?L.as:m.as):m.as;
-    const rb=isCurated? (L.rb||m.rb||{}):(m.rb||{});
-    const st=isCurated? (L.stats||{}):{};
-    const clock=isCurated? (L.clock||m.clock):m.clock;
+    const m=x;
+    const hs=m.hs, as=m.as, rb=m.rb||{}, st=m.stats||{}, clock=m.clock;
     const b=busyInfoOf(st, rb, hs, as);
     const expC=b.expC, o15=b.o15, o25=b.o25, xgpre=b.xgpre;
     const opps=[];
@@ -319,12 +307,16 @@ function renderEntries(){
     if(Number.isFinite(xgpre)) detail.push(`xG pré ${xgpre.toFixed(2)}`);
     if(b.shots>0) detail.push(`${b.shots} chutes`);
     if(b.corners>0) detail.push(`${b.corners} escanteios`);
+    const momen=[];
+    if(b.fire) momen.push("🔥 jogo quente");
+    if(b.ball) momen.push("⚡ momentum");
+    if(b.scored) momen.push("🎯 gol agora");
     const scr = (hs!=null && as!=null) ? `<span class="scr">${hs} x ${as}</span>` : "";
     return `<div class="entry">
       <div class="rk">${i+1}</div>
       <div>
-        <div class="mt">${b.fire?"🔥 ":""}${m.home} ${scr} ${m.away} <span class="clock">${clock}</span></div>
-        <div class="ml">${m.league}${detail.length?` · ${detail.join(" · ")}`:""}</div>
+        <div class="mt">${m.home} ${scr} ${m.away} <span class="clock">${clock}</span></div>
+        <div class="ml">${m.league}${detail.length?` · ${detail.join(" · ")}`:""}${momen.length?` · <b style="color:#7ddb95">${momen.join(" · ")}</b>`:""}</div>
       </div>
       <div class="opp">${opps.join("<br>")}</div>
     </div>`;
@@ -390,8 +382,16 @@ function rbFromModel(m){
     over15: og.over_15_ft && og.over_15_ft.probability,
     over25: og.over_25_ft && og.over_25_ft.probability,
     xgpre: pxg.ft && pxg.ft.total,
-    fire: !!m.hasFire
+    fire: !!m.hasFire,
+    ball: !!m.hasBall,
+    scored: !!m.justScored
   };
+}
+
+function isLiveMatch(m){
+  const st=(m.status||"").toLowerCase();
+  const t=(m.time||"").toUpperCase();
+  return !!m.isLive && st==="live" && t && t!=="FT" && t!=="PRE";
 }
 
 async function fetchLive(){
@@ -403,8 +403,7 @@ async function fetchLive(){
     for(const L of (data.leagues||[])){
       for(const m of (L.matches||[])){
         idx[norm(m.home||"")+"|"+norm(m.away||"")]=m;
-        const st=(m.status||"").toLowerCase();
-        if(m.isLive && st==="live" && m.time && m.time!=="FT" && m.time!=="PRE"){
+        if(isLiveMatch(m)){
           live.push({league:L.name||String(L.id), isMajor:!!L.is_major, m});
         }
       }
@@ -414,26 +413,20 @@ async function fetchLive(){
 }
 
 function buildDynamic(rbLive){
-  const curatedKeys=[];
-  for(const m of MATCHES){
-    curatedKeys.push(norm(m.home).split(" ")[0], norm(m.away).split(" ")[0]);
-  }
   const out=[];
   for(const item of rbLive){
+    if(!isLiveMatch(item.m)) continue;
     const home=(item.m.home||"").trim(), away=(item.m.away||"").trim();
-    const lower=(home+" "+away).toLowerCase();
-    if(curatedKeys.some(k=>lower.includes(k))) continue;
-    const st=(item.m.status||"").toLowerCase();
     out.push({
       key:norm(home)+"|"+norm(away),
       league:item.league, major:item.isMajor,
       home, away, hs:item.m.scoreHome, as:item.m.scoreAway,
-      clock: (st==="finished"||item.m.time==="FT")? "Encerrado" : (item.m.time||""),
+      clock: (item.m.time||""),
       rb:rbFromModel(item.m), stats:{}, picks:[]
     });
   }
   out.sort((a,b)=>rankOfDyn(b)-rankOfDyn(a));
-  return out.slice(0,8);
+  return out.slice(0,12);
 }
 
 function renderDynCard(d){
