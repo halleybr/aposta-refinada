@@ -262,6 +262,19 @@ function stars(n){ let s=""; for(let i=0;i<5;i++) s+= i<n ? "★" : "☆"; retur
 function pct(a,b){ const ta=parseFloat(a), tb=parseFloat(b); const t=ta+tb; return t===0 ? 50 : Math.round(ta/t*100); }
 function norm(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 function rbLabel(mkt){ return MARKET_LABELS[mkt]||mkt; }
+// jogos de baixo valor (categorias de base / times reservas) ficam fora das listas ao vivo
+function isLowValueMatch(home, away, league){
+  const names=[norm(home), norm(away)];
+  const t=names.join(" ");
+  const l=norm(league||"");
+  // categorias de base: U17/U19/U20/U21/U23 ou ligas juvenis
+  if(/\bu\d{2}\b/.test(t)) return true;
+  if(/\b(u\d{2}|sub[- ]?\d{2}|youth|junior|juvenil|junioren)\b/.test(l)) return true;
+  // times reservas: "reserves" no nome ou sufixo B/II/III/número ("barcelona b", "bayern ii", "kfum 2")
+  if(/\breserves?\b/.test(t)) return true;
+  if(names.some(n => /\b(?:b|ii|iii|[2-9])\s*$/.test(n))) return true;
+  return false;
+}
 
 // ---------- Movimentação e Top 3 dinâmico ----------
 function busyInfoOf(st, rb, hs, as){
@@ -506,6 +519,7 @@ function buildDynamic(rbLive){
   for(const item of rbLive){
     if(!isLiveMatch(item.m)) continue;
     const home=(item.m.home||"").trim(), away=(item.m.away||"").trim();
+    if(isLowValueMatch(home, away, item.league)) continue;
     out.push({
       key:norm(home)+"|"+norm(away),
       id:item.m.id,
@@ -551,17 +565,47 @@ function renderDynGrid(){
 
 async function refreshCycle(){
   const btn=document.getElementById("refresh");
+  if(btn.disabled) return; // evita ciclos sobrepostos (setInterval + clique)
   btn.disabled=true;
-  let synced=0;
+  let synced=0, warning=null;
   try{
     const rbData = await fetchLive();
     const rbIdx = rbData ? rbData.idx : null;
     const rbLive = rbData ? rbData.live : null;
-    const r = await fetch(API+"/all/scoreboard?limit=200");
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    const data = await r.json();
-    const events = data.events||[];
-    for(const m of MATCHES){
+
+    // jogos movimentados detectados automaticamente (todas as ligas)
+    if(rbLive){
+      DYNAMIC=buildDynamic(rbLive);
+    }else if(DYNAMIC.length){
+      // fonte ao vivo fora: mantém os últimos jogos visíveis em vez de esvaziar a lista
+      warning="fonte ao vivo indisponível";
+      for(const d of DYNAMIC){ if(d.clock!=="Encerrado") d.seenAt=Date.now(); }
+    }
+    // estatísticas ao vivo (escanteios, xG, chutes) direto da fonte, por jogo da lista
+    for(const d of (DYNAMIC||[])){
+      const s=await fetchLiveStats(d.id);
+      if(!s) continue;
+      if(s.finished){ d.clock="Encerrado"; continue; }
+      d.stats=s;
+      d.seenAt=Date.now();
+      if(s.clock) d.clock=s.clock;
+      if(s.hs!=null) d.hs=s.hs;
+      if(s.as!=null) d.as=s.as;
+    }
+    // reordena com as estatísticas ao vivo (xG, chutes, escanteios) em mãos
+    DYNAMIC.sort((a,b)=>rankOfDyn(b)-rankOfDyn(a));
+    DYNAMIC=DYNAMIC.slice(0,12);
+    renderDynGrid();
+    renderLiveTable();
+    renderEntries();
+
+    // sincronização com a ESPN (placar/estatísticas dos jogos fixos) — se falhar, não derruba o resto
+    try{
+      const r = await fetch(API+"/all/scoreboard?limit=200");
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      const data = await r.json();
+      const events = data.events||[];
+      for(const m of MATCHES){
       const ev = events.find(e=>eventMatches(e,m));
       const L=live[m.id]={...live[m.id]};
       const wasFinished = L.clock==="Encerrado";
@@ -617,27 +661,14 @@ async function refreshCycle(){
       }
     }
 
-    // jogos movimentados detectados automaticamente (todas as ligas)
-    if(rbLive){ DYNAMIC=buildDynamic(rbLive); }
-    // estatísticas ao vivo (escanteios, xG, chutes) direto da fonte, por jogo da lista
-    for(const d of (DYNAMIC||[])){
-      const s=await fetchLiveStats(d.id);
-      if(!s) continue;
-      if(s.finished){ d.clock="Encerrado"; continue; }
-      d.stats=s;
-      d.seenAt=Date.now();
-      if(s.clock) d.clock=s.clock;
-      if(s.hs!=null) d.hs=s.hs;
-      if(s.as!=null) d.as=s.as;
+    }catch(err){
+      warning = (warning? warning+" · " : "") + "ESPN: "+err.message;
     }
-    // reordena com as estatísticas ao vivo (xG, chutes, escanteios) em mãos
-    DYNAMIC.sort((a,b)=>rankOfDyn(b)-rankOfDyn(a));
-    DYNAMIC=DYNAMIC.slice(0,12);
-    renderDynGrid();
-    renderLiveTable();
-    renderEntries();
     const now=new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    document.getElementById("timestamp").textContent=`🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓`;
+    const aoVivo=DYNAMIC.filter(d=>d.clock!=="Encerrado").length;
+    document.getElementById("timestamp").textContent = warning
+      ? `🟡 ${now} — ${aoVivo} jogos ao vivo · aviso: ${warning}`
+      : `🟢 Auto-atualização a cada 60s — ${now} · ${synced} jogos sincronizados ✓`;
   }catch(err){
     document.getElementById("timestamp").textContent="⚠️ Falha na atualização ("+err.message+") — exibindo último estado. Próxima tentativa em 60s.";
   }
